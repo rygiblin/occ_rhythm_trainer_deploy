@@ -16,13 +16,18 @@ export class TutorialTile extends TileMarker {
   }
 
   override get color(): string {
+    if (this.region.world.isPaused) return LOOK.colours.idle;
     const cue = this.guide();
     if (cue?.kind === "return-to-pair" && cue.target === this.label) return LOOK.colours.occupied;
     return cue?.kind === "step" && cue.target === this.label ? LOOK.colours.step : LOOK.colours.idle;
   }
 
+  override visible(tickPercent: number): boolean {
+    return super.visible(tickPercent) && !(this.label === "B" && this.guide()?.kind === "return-to-pair");
+  }
+
   override drawUILayer(_tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, _scale: number): void {
-    if (!projector.visible) return;
+    if (!projector.visible || !this.visible(_tickPercent)) return;
     const at = projector.atHeight(0);
     const cue = this.guide();
     const active = (cue?.kind === "step" || cue?.kind === "return-to-pair") && cue.target === this.label;

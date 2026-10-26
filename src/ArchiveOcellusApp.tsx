@@ -584,6 +584,16 @@ const RHYTHM_MODES: Readonly<Record<RhythmMode, Readonly<{ label: string; next: 
   melee: { label: "Melee only", next: "alternating" },
 };
 
+function RhythmModeButton({ mode }: Readonly<{ mode: RhythmMode }>) {
+  const currentMode = RHYTHM_MODES[mode];
+  const switchMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("rhythmMode", currentMode.next);
+    window.location.assign(url.href);
+  };
+  return <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={`Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching mode starts a fresh practice set.">Mode: {currentMode.label}</button>;
+}
+
 function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: RhythmMode }>) {
   const [section, setSection] = useState(() => region.rhythmStatus());
   useEffect(() => {
@@ -591,18 +601,11 @@ function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: 
     return () => window.clearInterval(poll);
   }, [region]);
   const style = section?.style === "melee" ? "Melee" : "Ranged";
-  const teaching = region.tutorialEnabled();
-  const currentMode = RHYTHM_MODES[mode];
-  const switchMode = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("rhythmMode", currentMode.next);
-    window.location.assign(url.href);
-  };
   return (
     <div id="rhythm_banner" data-style={section?.style ?? "ranged"}>
-      <strong>{teaching ? "Guided rhythm practice" : section === null ? "Rhythm practice · Get ready" : section.kind === "prepare" ? `Next: ${style} · ${section.remaining} ticks` : `${style} · ${section.beat} / ${section.count}`}</strong>
-      <span>{teaching ? "Choose a style, then follow the STEP and ATTACK cues below." : "Step one tile, then click Ocellus. Repeat every 2 ticks. Gear switches automatically."}</span>
-      <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={`Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching mode starts a fresh practice set.">Mode: {currentMode.label}</button>
+      <strong>{section === null ? "Rhythm practice · Get ready" : section.kind === "prepare" ? `Next: ${style} · ${section.remaining} ticks` : `${style} · ${section.beat} / ${section.count}`}</strong>
+      <span>Step one tile, then click Ocellus. Repeat every 2 ticks. Gear switches automatically.</span>
+      <RhythmModeButton mode={mode} />
     </div>
   );
 }
@@ -629,16 +632,42 @@ function teachingInstruction(cue: TeachingStatus["cue"]): string {
   }
 }
 
-function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerInstance; region: OcellusRegion; ready: boolean }>) {
+function metronomeClick(action: "step" | "attack"): void {
+  const context = SoundCache.context;
+  if (!context || context.state !== "running") return;
+  const sound = OCELLUS_P4.teaching.value.metronome;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.frequency.value = action === "step" ? sound.stepHz : sound.attackHz;
+  gain.gain.setValueAtTime(sound.volume, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + sound.seconds);
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  oscillator.start();
+  oscillator.stop(context.currentTime + sound.seconds);
+}
+
+function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: TrainerInstance; region: OcellusRegion; ready: boolean; mode: RhythmMode }>) {
   const [lesson, setLesson] = useState<"intro" | "running" | "paused">("intro");
+  const [metronome, setMetronome] = useState(false);
   const [status, setStatus] = useState(() => region.tutorialStatus());
   useEffect(() => {
     if (ready) trainer.world.startLoop();
   }, [ready, trainer]);
   useEffect(() => {
-    const poll = window.setInterval(() => setStatus(region.tutorialStatus()), 50);
+    let lastTick = trainer.world.globalTickCounter;
+    const poll = window.setInterval(() => {
+      const current = region.tutorialStatus();
+      setStatus(current);
+      const worldTick = trainer.world.globalTickCounter;
+      if (worldTick === lastTick) return;
+      lastTick = worldTick;
+      if (!metronome || lesson !== "running" || trainer.world.isPaused) return;
+      if (current?.cue.kind === "step" || current?.cue.kind === "attack") metronomeClick(current.cue.kind);
+    }, 25);
     return () => window.clearInterval(poll);
-  }, [region]);
+  }, [region, trainer, metronome, lesson]);
   const start = () => {
     if (!ready) return;
     trainer.start();
@@ -657,8 +686,12 @@ function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerI
     window.location.assign(url.href);
   };
   const cue = status?.cue;
-  const style = cue?.style === "melee" ? "Melee" : "Ranged";
-  const progress = cue?.kind === "step" || cue?.kind === "attack" ? `${style} · Beat ${cue.beat} / ${OCELLUS_P4.rhythm.value.count}` : `${style} · Preparation`;
+  const stage = status?.lesson;
+  const style = stage?.style === "melee" ? "Melee" : "Ranged";
+  const progress = stage?.kind === "practice" ? `${style} · Beat ${stage.beat} / ${stage.count}` : stage?.kind === "count-in" ? `${style} · Starts in ${stage.remaining}` : `${style} · Positioning · Floor clear`;
+  const ticking = lesson === "running" && !trainer.world.isPaused;
+  const fraction = Math.max(0, Math.min(1, status?.tickProgress ?? 0));
+  const milliseconds = Math.max(0, Math.ceil((1 - fraction) * Settings.tickMs));
   return (
     <>
       {lesson === "intro" && (
@@ -671,9 +704,10 @@ function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerI
               <li><b className="tutorial_step_colour">Green STEP:</b> click the highlighted tile to move one tile.</li>
               <li><b className="tutorial_attack_colour">Gold ATTACK:</b> click Ocellus's body.</li>
               <li>Repeat from wherever you stand safely. One click per tick: step, attack, step, attack.</li>
-              <li><b className="tutorial_position_colour">Blue POSITION:</b> move to the nearby safe tile before the next set.</li>
+              <li><b className="tutorial_position_colour">Blue POSITION:</b> move to safe floor. The lesson waits, then counts into the next set.</li>
             </ol>
-            <p>HERE marks your safe position and STEP shows a safe neighbor. Green is always a one-tile dodge. The floor and gear switch automatically; the dark void floor deals damage.</p>
+            <p>Follow the tick pulse to anticipate each click. The optional metronome uses a low tone for STEP and a high tone for ATTACK. Active sets use normal game speed.</p>
+            <RhythmModeButton mode={mode} />
             <button id="tutorial_start" type="button" disabled={!ready} onClick={start}>{ready ? "Start guided practice" : "Loading practice…"}</button>
           </section>
         </div>
@@ -681,14 +715,20 @@ function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerI
       {lesson !== "intro" && (
         <section id="tutorial_panel" data-action={lesson === "paused" ? "paused" : cue?.kind ?? "prepare"}>
           <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
+          <RhythmModeButton mode={mode} />
           <strong id="tutorial_cue">{lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
           <p id="tutorial_progress">{progress}</p>
+          <div id="tutorial_pulse" role="progressbar" aria-label="Time through current tick" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)} data-running={ticking}>
+            <div style={{ width: `${fraction * 100}%` }} />
+            <span>{ticking ? `${milliseconds} ms to next tick` : "Tick paused"}</span>
+          </div>
           <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : cue?.kind === "step" ? "Click the green neighboring tile now." : cue?.kind === "attack" ? "Click the gold label on Ocellus's body now." : cue?.kind === "return-to-pair" ? `Click blue POSITION for ${style.toLowerCase()}: ${style === "Ranged" ? "outside the central square" : "on the inner rim"}.` : "Wait for the next cue. Blue repositions you; green starts the rhythm."}</p>
           <div className="tutorial_beat"><span data-active={lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
           <p id="tutorial_feedback">{status?.safeFloor === false ? "You are on the damaging void floor. Move to blue POSITION." : status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
           <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>
           <div className="tutorial_controls">
             <button id="tutorial_pause" type="button" onClick={pause}>{lesson === "paused" ? "Resume" : "Pause"}</button>
+            <button id="tutorial_metronome" type="button" aria-pressed={metronome} onClick={() => setMetronome((on) => !on)}>Metronome: {metronome ? "On" : "Off"}</button>
             <button id="tutorial_leave" type="button" onClick={leave}>Practice without guides</button>
           </div>
         </section>
@@ -730,8 +770,8 @@ function TrainerPage({ trainer, drill, flags }: Opened) {
     <TrainerApp trainer={trainer} autoStart={!teaching} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
-        {drill.phase === "p4" && drill.config.choices.focus.key === "rhythm-loop" && <RhythmBanner region={drill.region} mode={drill.config.choices.rhythmMode.key} />}
-        {drill.phase === "p4" && teaching && <RhythmTutorial trainer={trainer} region={drill.region} ready={loading?.status === "ready"} />}
+        {drill.phase === "p4" && drill.config.choices.focus.key === "rhythm-loop" && !teaching && <RhythmBanner region={drill.region} mode={drill.config.choices.rhythmMode.key} />}
+        {drill.phase === "p4" && teaching && <RhythmTutorial trainer={trainer} region={drill.region} ready={loading?.status === "ready"} mode={drill.config.choices.rhythmMode.key} />}
         <div id="hud_corner">
           <GameChat region={drill.region} />
           <DrillControls drill={drill} flags={flags} />

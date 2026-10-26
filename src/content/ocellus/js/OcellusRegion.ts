@@ -281,7 +281,7 @@ export class OcellusRegion extends Region {
   rhythmStatus(): RhythmSection | null {
     if (this.config.choices.focus.key !== "rhythm-loop" || this.mounted.kind === "unmounted") return null;
     const run = this.mounted.ocellus.runState();
-    return run.kind === "running" ? rhythmSectionAt(run.tick, this.config.choices.rhythmMode.key) : null;
+    return run.kind === "running" ? rhythmSectionAt(this.mounted.ocellus.teachingState()?.virtualTick ?? run.tick, this.config.choices.rhythmMode.key) : null;
   }
 
   tutorialEnabled(): boolean {
@@ -291,12 +291,13 @@ export class OcellusRegion extends Region {
   tutorialStatus(): TutorialStatus | null {
     if (!this.tutorialEnabled() || this.mounted.kind === "unmounted") return null;
     const guide = this.mounted.ocellus.teachingGuide();
-    if (guide === null) return null;
+    const state = this.mounted.ocellus.teachingState();
+    if (guide === null || state === null) return null;
     const run = this.mounted.ocellus.runState();
     const at = run.kind === "running" ? run.tick : null;
     const floor = run.kind === "running" ? voidUnder(run.phase) : null;
     const safeFloor = floor === null || !VOID_MASKS[floor].contains(this.mounted.player.observe().tile);
-    return { ...guide, safeFloor, ...this.teachingResult, tick: at };
+    return { ...guide, ...state, safeFloor, tickProgress: this.world.tickPercent, ...this.teachingResult, tick: at };
   }
 
   chat(): readonly string[] {

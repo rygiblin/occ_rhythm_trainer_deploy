@@ -2,6 +2,14 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.4",
+    notes: [
+      "Guided sets wait on clear floor until you are safely positioned, then count into fifteen attacks at normal speed.",
+      "A smaller teaching panel shows the current phase, beat and tick countdown, with an optional metronome.",
+      "Positioning shows only the blue target, keeping inactive step labels out of the way.",
+    ],
+  },
+  {
     version: "2026.10.26.3",
     notes: [
       "The teaching version labels two practice tiles and shows when to step and when to attack Ocellus.",

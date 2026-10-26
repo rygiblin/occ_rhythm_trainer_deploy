@@ -896,7 +896,7 @@ export const OCELLUS_P4 = {
     "assumption", "unscaled", "local rhythm drill: fifteen ranged beats then fifteen melee beats with five neutral preparation ticks; practice settings, not verified game timings", NO_WIKI_PRACTICE, PRACTICE,
   ),
   teaching: selected(
-    { tiles: { ranged: { A: tile(5, 2), B: tile(6, 2) }, melee: { A: tile(5, 3), B: tile(6, 3) } }, colours: { idle: "#78818b", step: "#4ee6a1", occupied: "#71bdff", attack: "#ffd36b" } } as const,
+    { tiles: { ranged: { A: tile(5, 2), B: tile(6, 2) }, melee: { A: tile(5, 3), B: tile(6, 3) } }, colours: { idle: "#78818b", step: "#4ee6a1", occupied: "#71bdff", attack: "#ffd36b" }, metronome: { stepHz: 660, attackHz: 990, seconds: 0.045, volume: 0.04 } } as const,
     "assumption", "unscaled", "local teaching aid: initial ranged tiles outside the central square, initial melee tiles on its safe rim, and visual action colours; live guides follow the player; not game data", NO_WIKI_PRACTICE, PRACTICE,
   ),
   presentation: PRESENTATION,

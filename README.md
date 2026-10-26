@@ -24,7 +24,9 @@ For a fresh Windows checkout, run `powershell.exe -NoProfile -ExecutionPolicy By
 
 Double-click **Start teaching version.cmd**, or open `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on`. Read the short introduction and click **Start guided practice**. Follow the green STEP tile, then the gold ATTACK cue on the boss. The markers follow your current position and select a safe neighboring tile. Feedback reports actual successful step-and-attack pairs, missing attacks, late steps and moves that went too far. Pause and Resume let you stop to read. The mode button still selects alternating, ranged-only or melee-only practice.
 
-Ranged steps stay outside the central square; melee steps stay on its safe inner rim. If you need to change sides, follow the blue positioning cue to a nearby safe tile, then resume green STEP and gold ATTACK. The teaching aid runs at normal speed and uses the existing floor-damage, movement and attack-delay rules. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option.
+Ranged steps stay outside the central square; melee steps stay on its safe inner rim. Between sets, the lesson waits on clear floor while you follow the blue positioning cue to a nearby safe tile. It starts the full count-in when you are ready. Leaving safe floor during the count-in resets it. Active sets run at normal speed with the existing floor-damage, movement and attack-delay rules.
+
+The compact panel shows the current phase, beat and time remaining to the next tick. Click **Metronome: Off** to enable optional low STEP and high ATTACK tones. It starts off each time you open the lesson and stays silent while paused or positioning. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option. Earlier lesson snapshots are saved at tags `teaching-v1` and `teaching-v2`.
 
 ## Development
 

@@ -14,12 +14,12 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26.3",
+  version: "2026.10.26.4",
   date: "2026-10-26",
   notes: [
-    "The teaching version labels two practice tiles and shows when to step and when to attack Ocellus.",
-    "Start when ready, pause to read, and use feedback from your actual dodges and attacks to learn the rhythm.",
-    "Teaching markers follow your position and point to a safe neighboring step, with a blue positioning cue when you need to change sides of the floor.",
+    "Guided sets wait on clear floor until you are safely positioned, then count into fifteen attacks at normal speed.",
+    "A smaller teaching panel shows the current phase, beat and tick countdown, with an optional metronome.",
+    "Positioning shows only the blue target, keeping inactive step labels out of the way.",
   ],
 };
 

@@ -1,5 +1,7 @@
 # Teach the two-tick rhythm
 
+This document records the original lesson and its dynamic safe-floor correction through `teaching-v2`. The approved readiness gate, tick pulse, optional metronome and compact display are described in [Teaching v3](teaching-v3-design.md). Its readiness waits replace the fixed transition times in the historical timing table below.
+
 The teaching aid is an opt-in version of the fifteen-beat trainer. The original is saved at tag `practice-v1-15-beats`, commit `1bd3ffcae0efc48c95c185430a185f425077724b`, and as a frozen playable build in the workspace's `saved-versions/rhythm-practice-v1/` folder. The tutorial is developed on `codex/rhythm-tutorial`. Normal practice remains available without tutorial guidance.
 
 ## Teaching flow

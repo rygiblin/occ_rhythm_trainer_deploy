@@ -42,6 +42,7 @@ import { compileSchedule } from "../p4/schedule";
 import { rhythmSectionAt } from "../p4/rhythm";
 import type { TutorialCue, TutorialGuide } from "../p4/tutorial";
 import { tutorialGuide } from "../p4/tutorial";
+import { TeachingTimeline } from "../p4/TeachingTimeline";
 import { equipSetup } from "../OcellusLoadout";
 import { VoidRift } from "./VoidRift";
 
@@ -115,6 +116,7 @@ function specialAttack<V extends Special>(at: Tick, ordinal: Ordinal, variant: V
 
 export class Ocellus extends Mob {
   private readonly schedule: P4Schedule;
+  private readonly teaching: TeachingTimeline | null;
   readonly holes: TileSet;
   readonly binding: OcellusBinding;
   private orbs: Orbs = NO_ORBS;
@@ -125,6 +127,10 @@ export class Ocellus extends Mob {
 
   private readonly hooks: Hooks<P4Run> = {
     "tick-opened": ({ time }) => {
+      if (this.teaching?.advance(time.encounter, this.target.observe().tile)) {
+        equipSetup(this.target, OCELLUS_P4.choices.setup.options[this.teaching.lesson().style].value);
+        this.target.attackDelay = 0;
+      }
       this.healSplats = this.healSplats.filter((splat) => splat.lastShown >= time.encounter);
     },
     "before-npc-hits": ({ time, incoming }) => {
@@ -151,6 +157,7 @@ export class Ocellus extends Mob {
     super(region, OCELLUS_P4.geometry.bossAnchor.value);
     this.schedule = compileSchedule(config.seed, config.choices);
     this.holes = TileSet.at(this.schedule.acts("floor-holes") ? config.choices.floorHoleLayout.option.value.tiles : []);
+    this.teaching = config.choices.focus.key === "rhythm-loop" && config.choices.tutorial.option.value ? new TeachingTimeline(this.schedule, config.choices.rhythmMode.key, this.holes.tiles()) : null;
     this.binding = new EncounterBinding(config.seed, this.schedule.start, target, this.hooks);
   }
 
@@ -195,13 +202,18 @@ export class Ocellus extends Mob {
   }
 
   rhythmAttackBlocked(): boolean {
+    if (this.teaching) return this.teaching.lesson().kind !== "practice";
     return this.config.choices.focus.key === "rhythm-loop" && rhythmSectionAt(this.binding.view().at, this.config.choices.rhythmMode.key).kind === "prepare";
   }
 
   teachingGuide(): TutorialGuide | null {
     if (this.config.choices.focus.key !== "rhythm-loop" || !this.config.choices.tutorial.option.value) return null;
     const run = this.runState();
-    return tutorialGuide(run.kind === "running" ? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key, this.holes.tiles());
+    return tutorialGuide(run.kind === "running" ? this.teaching?.virtualTick ?? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key, this.holes.tiles());
+  }
+
+  teachingState() {
+    return this.teaching ? { lesson: this.teaching.lesson(), virtualTick: this.teaching.virtualTick } : null;
   }
 
   teachingCue(): TutorialCue | null {
@@ -210,7 +222,7 @@ export class Ocellus extends Mob {
 
   override drawUILayer(tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, scale: number): void {
     super.drawUILayer(tickPercent, projector, context, scale);
-    if (!projector.visible || this.teachingCue()?.kind !== "attack") return;
+    if (!projector.visible || this.region.world.isPaused || this.teachingCue()?.kind !== "attack") return;
     const at = projector.atHeight(projector.logicalHeight * 0.5);
     context.save();
     context.font = "bold 17px sans-serif";
@@ -262,7 +274,7 @@ export class Ocellus extends Mob {
       case "waiting":
         return { kind: "waiting" };
       case "running":
-        return { kind: "running", tick: run.at, phase: this.schedule.at(run.at).phase };
+        return { kind: "running", tick: run.at, phase: this.momentAt(run.at).phase };
       case "ended":
         return { kind: "ended", at: run.at, reason: run.reason };
       default: {
@@ -273,19 +285,23 @@ export class Ocellus extends Mob {
   }
 
   private phase(): Phase {
-    return this.schedule.at(this.binding.view().at).phase;
+    return this.momentAt(this.binding.view().at).phase;
+  }
+
+  private momentAt(at: Tick) {
+    return this.teaching?.at(at) ?? this.schedule.at(at);
   }
 
   private turn(at: Tick, player: PlayerAtTurn): Readonly<{ outputs: readonly TurnOutput[]; ending: RunEnd | null }> {
-    const moment = this.schedule.at(at);
-    if (this.config.choices.focus.key === "rhythm-loop") {
+    const moment = this.momentAt(at);
+    if (!this.teaching && this.config.choices.focus.key === "rhythm-loop") {
       const section = rhythmSectionAt(at, this.config.choices.rhythmMode.key);
       if (section.kind === "prepare" && section.remaining === OCELLUS_P4.rhythm.value.prepare) {
         equipSetup(this.target, OCELLUS_P4.choices.setup.options[section.style].value);
         this.target.attackDelay = 0;
       }
     }
-    const phased = logs(...phaseEvents(at > 0 ? this.schedule.at(tick(at - 1)).phase : null, moment.phase, at));
+    const phased = logs(...phaseEvents(at > 0 ? this.momentAt(tick(at - 1)).phase : null, moment.phase, at));
     if (this.currentStats.hitpoint <= 0) return { outputs: [...phased, ...logs({ kind: "run-ended", at, reason: "kill" })], ending: "kill" };
     const destroyed = this.destroyFallenRifts(at, player.attackDelay);
     this.rifts.forEach((rift) => rift.mob.charge(span(at - rift.spawnedAt)));
@@ -306,14 +322,14 @@ export class Ocellus extends Mob {
   }
 
   private judge(at: Tick, style: IncomingStyle, launchedAt: Tick): Verdict {
-    if (!damageable(this.schedule.at(at).phase.boss)) return { outcome: "invulnerable" };
-    const unblocked = damageReduction(this.config.choices, this.schedule.at(at).beats);
+    if (!damageable(this.momentAt(at).phase.boss)) return { outcome: "invulnerable" };
+    const unblocked = damageReduction(this.config.choices, this.momentAt(at).beats);
     const rule = this.config.choices.deflect.option.value;
     switch (rule.kind) {
       case "none":
         return unblocked;
       case "block": {
-        const { overhead } = this.schedule.at(launchedAt).phase;
+        const { overhead } = this.momentAt(launchedAt).phase;
         const deflected = overhead === null ? null : OCELLUS_P4.deflects[overhead].value;
         return deflected !== null && deflected === style ? { outcome: "blocked", style: deflected, reflectPercent: rule.reflectPercent } : unblocked;
       }
@@ -491,7 +507,7 @@ export class Ocellus extends Mob {
       rift.mob.hitsThisTick.map((hit): FightEvent => ({ kind: "rift-hit", at: time.encounter, rift: rift.id, style: incomingStyle(hit.attackStyle), damage: hit.damage })),
     );
     const landed = [...events, ...riftHits];
-    const { phase, beats } = this.schedule.at(time.encounter);
+    const { phase, beats } = this.momentAt(time.encounter);
     const row: TickRow = {
       tick: time.encounter,
       worldTick: time.world,

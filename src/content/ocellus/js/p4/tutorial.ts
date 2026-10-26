@@ -6,6 +6,7 @@ import { OCELLUS_P4 } from "../OcellusTimings";
 import type { TickRow } from "../P4Types";
 import { rhythmSectionAt } from "./rhythm";
 import { FOOTPRINT, PLATFORM, VOID_MASKS } from "./floor";
+import type { TeachingLesson } from "./TeachingTimeline";
 
 type Style = "ranged" | "melee";
 export type TeachingPair = Readonly<{ A: Tile; B: Tile }>;
@@ -16,12 +17,12 @@ export type TutorialCue =
   | Readonly<{ kind: "attack"; style: Style; beat: number }>
   | Readonly<{ kind: "return-to-pair"; style: Style; target: "A"; tile: Tile }>;
 export type TutorialFeedback = "clean-pair" | "dodge-without-attack" | "hit" | "moved-too-far";
-export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; safeFloor: boolean; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
+export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; safeFloor: boolean; lesson: TeachingLesson; virtualTick: Tick; tickProgress: number; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
 export type TutorialGuide = Readonly<{ cue: TutorialCue; tiles: TeachingPair }>;
 
 export const sameTile = (left: Tile, right: Tile): boolean => left.x === right.x && left.y === right.y;
 
-function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TeachingPair {
+export function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TeachingPair {
   const section = rhythmSectionAt(at ?? tick(0), mode);
   const safe = (at: Tile): boolean => PLATFORM.contains(at) && !FOOTPRINT.contains(at) && !VOID_MASKS[section.void].contains(at) && !holes.some((hole) => sameTile(at, hole));
   const pairAt = (anchor: Tile): TeachingPair | null => {
