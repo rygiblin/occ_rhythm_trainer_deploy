@@ -14,6 +14,9 @@ import { BossFootprint, Ocellus } from "./mobs/Ocellus";
 import { BRAZIERS, CURB, PLATFORM, voidUnder } from "./p4/floor";
 import type { RhythmSection } from "./p4/rhythm";
 import { rhythmSectionAt } from "./p4/rhythm";
+import type { TutorialStatus } from "./p4/tutorial";
+import { tutorialFeedback } from "./p4/tutorial";
+import { TutorialTile } from "./entities/TutorialTile";
 
 const GRID = PLATFORM.extent();
 
@@ -128,6 +131,7 @@ function present(event: FightEvent, views: Views, player: Tile): void {
 export class OcellusRegion extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   private invincibleSetting = false;
+  private teachingResult: Pick<TutorialStatus, "feedback" | "clean" | "attempts"> = { feedback: null, clean: 0, attempts: 0 };
 
   get invincible(): boolean {
     return this.config.choices.focus.key === "rhythm-loop" || this.invincibleSetting;
@@ -189,6 +193,7 @@ export class OcellusRegion extends Region {
   }
 
   initialiseRegion(): { player: Player } {
+    this.teachingResult = { feedback: null, clean: 0, attempts: 0 };
     const player: OcellusPlayer = new OcellusPlayer(
       this,
       { ...(this.config.choices.focus.key === "rhythm-loop" ? OCELLUS_P4.rhythm.value.spawn : OCELLUS_P4.geometry.playerSpawn.value) },
@@ -220,6 +225,10 @@ export class OcellusRegion extends Region {
     this.addMob(ocellus);
     this.setBoss(ocellus);
     this.mounted = { kind: "mounted", ocellus, player, views };
+    if (this.tutorialEnabled()) {
+      this.addEntity(new TutorialTile(this, "A", () => ocellus.teachingCue()));
+      this.addEntity(new TutorialTile(this, "B", () => ocellus.teachingCue()));
+    }
     return { player };
   }
 
@@ -239,6 +248,14 @@ export class OcellusRegion extends Region {
     if (this.mounted.kind === "unmounted") return;
     const row = this.mounted.ocellus.binding.finishTick();
     if (!row) return;
+    if (this.tutorialEnabled()) {
+      const feedback = tutorialFeedback(row);
+      if (feedback !== null) this.teachingResult = {
+        feedback,
+        clean: this.teachingResult.clean + (feedback === "clean-pair" ? 1 : 0),
+        attempts: this.teachingResult.attempts + 1,
+      };
+    }
     const { views } = this.mounted;
     const floor = voidUnder(row.phase);
     views.field.show(floor);
@@ -260,6 +277,18 @@ export class OcellusRegion extends Region {
     if (this.config.choices.focus.key !== "rhythm-loop" || this.mounted.kind === "unmounted") return null;
     const run = this.mounted.ocellus.runState();
     return run.kind === "running" ? rhythmSectionAt(run.tick, this.config.choices.rhythmMode.key) : null;
+  }
+
+  tutorialEnabled(): boolean {
+    return this.config.choices.focus.key === "rhythm-loop" && this.config.choices.tutorial.option.value;
+  }
+
+  tutorialStatus(): TutorialStatus | null {
+    if (!this.tutorialEnabled() || this.mounted.kind === "unmounted") return null;
+    const cue = this.mounted.ocellus.teachingCue();
+    if (cue === null) return null;
+    const run = this.mounted.ocellus.runState();
+    return { cue, ...this.teachingResult, tick: run.kind === "running" ? run.tick : null };
   }
 
   chat(): readonly string[] {

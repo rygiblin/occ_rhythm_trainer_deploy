@@ -60,6 +60,7 @@ type VerificationProbeSnapshot = Readonly<{
   panel: Readonly<{ tab: string | null; keys: Readonly<Record<"inventory" | "spellbook" | "prayer" | "equipment" | "combat", string>> }>;
   menu: readonly string[] | null;
   icons: Readonly<Record<string, Readonly<{ path: string; size: string }>>>;
+  tutorial: ReturnType<OcellusRegion["tutorialStatus"]>;
 }>;
 
 function drawnIcons(items: readonly (Item | null | undefined)[]): VerificationProbeSnapshot["icons"] {
@@ -97,6 +98,7 @@ function exposeVerificationProbe(trainer: TrainerInstance, region: Drill["region
         },
         menu: contextMenu.isActive ? contextMenu.menuOptions.map((option) => option.text.map((block) => `${block.text}`).join("")) : null,
         icons: player ? drawnIcons([...player.inventory, ...Object.values(player.equipment)]) : {},
+        tutorial: region instanceof OcellusRegion ? region.tutorialStatus() : null,
       };
     },
     log: () => region.fightLog(),
@@ -589,6 +591,7 @@ function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: 
     return () => window.clearInterval(poll);
   }, [region]);
   const style = section?.style === "melee" ? "Melee" : "Ranged";
+  const teaching = region.tutorialEnabled();
   const currentMode = RHYTHM_MODES[mode];
   const switchMode = () => {
     const url = new URL(window.location.href);
@@ -597,10 +600,99 @@ function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: 
   };
   return (
     <div id="rhythm_banner" data-style={section?.style ?? "ranged"}>
-      <strong>{section === null ? "Rhythm practice · Get ready" : section.kind === "prepare" ? `Next: ${style} · ${section.remaining} ticks` : `${style} · ${section.beat} / ${section.count}`}</strong>
-      <span>Step one tile, then click Ocellus. Repeat every 2 ticks. Gear switches automatically.</span>
+      <strong>{teaching ? "Guided rhythm practice" : section === null ? "Rhythm practice · Get ready" : section.kind === "prepare" ? `Next: ${style} · ${section.remaining} ticks` : `${style} · ${section.beat} / ${section.count}`}</strong>
+      <span>{teaching ? "Choose a style, then follow the STEP and ATTACK cues below." : "Step one tile, then click Ocellus. Repeat every 2 ticks. Gear switches automatically."}</span>
       <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={`Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching mode starts a fresh practice set.">Mode: {currentMode.label}</button>
     </div>
+  );
+}
+
+type TeachingStatus = NonNullable<ReturnType<OcellusRegion["tutorialStatus"]>>;
+
+const TEACHING_FEEDBACK: Readonly<Record<NonNullable<TeachingStatus["feedback"]>, string>> = {
+  "clean-pair": "Good: one-tile dodge and attack together.",
+  "dodge-without-attack": "Good step. Click Ocellus on the gold ATTACK cue.",
+  hit: "The step was missed or late. Move on green STEP, before the burst.",
+  "moved-too-far": "You moved too far. Use only the neighboring A and B tiles.",
+};
+
+function teachingInstruction(cue: TeachingStatus["cue"]): string {
+  switch (cue.kind) {
+    case "prepare": return "GET READY";
+    case "step": return `STEP TO ${cue.target}`;
+    case "attack": return "ATTACK OCELLUS";
+    case "return-to-pair": return "RETURN TO TILE A";
+    default: {
+      const unhandled: never = cue;
+      return unhandled;
+    }
+  }
+}
+
+function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerInstance; region: OcellusRegion; ready: boolean }>) {
+  const [lesson, setLesson] = useState<"intro" | "running" | "paused">("intro");
+  const [status, setStatus] = useState(() => region.tutorialStatus());
+  useEffect(() => {
+    if (ready) trainer.world.startLoop();
+  }, [ready, trainer]);
+  useEffect(() => {
+    const poll = window.setInterval(() => setStatus(region.tutorialStatus()), 50);
+    return () => window.clearInterval(poll);
+  }, [region]);
+  const start = () => {
+    if (!ready) return;
+    trainer.start();
+    setLesson("running");
+  };
+  const pause = () => {
+    if (lesson === "paused") start();
+    else {
+      trainer.stop();
+      setLesson("paused");
+    }
+  };
+  const leave = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tutorial");
+    window.location.assign(url.href);
+  };
+  const cue = status?.cue;
+  const style = cue?.style === "melee" ? "Melee" : "Ranged";
+  const progress = cue?.kind === "step" || cue?.kind === "attack" ? `${style} · Beat ${cue.beat} / ${OCELLUS_P4.rhythm.value.count}` : `${style} · Preparation`;
+  return (
+    <>
+      {lesson === "intro" && (
+        <div id="tutorial_intro" role="dialog" aria-modal="true" aria-labelledby="tutorial_title">
+          <section>
+            <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
+            <h2 id="tutorial_title">Learn the two-tick rhythm</h2>
+            <p>Use the two neighboring tiles marked <b>A</b> and <b>B</b>.</p>
+            <ol>
+              <li><b className="tutorial_step_colour">Green STEP:</b> click the highlighted tile to move one tile.</li>
+              <li><b className="tutorial_attack_colour">Gold ATTACK:</b> click Ocellus's body.</li>
+              <li>Repeat between A and B. One click per tick: step, attack, step, attack.</li>
+            </ol>
+            <p>Wait for each cue. Moving early, late, or two tiles loses the speed bonus. The floor and gear switch automatically.</p>
+            <button id="tutorial_start" type="button" disabled={!ready} onClick={start}>{ready ? "Start guided practice" : "Loading practice…"}</button>
+          </section>
+        </div>
+      )}
+      {lesson !== "intro" && (
+        <section id="tutorial_panel" data-action={lesson === "paused" ? "paused" : cue?.kind ?? "prepare"}>
+          <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
+          <strong id="tutorial_cue">{lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
+          <p id="tutorial_progress">{progress}</p>
+          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : cue?.kind === "step" ? "Click the green neighboring tile now." : cue?.kind === "attack" ? "Click the gold label on Ocellus's body now." : cue?.kind === "return-to-pair" ? "Click A to return to the teaching tiles." : "Stay on A or B and wait for green STEP."}</p>
+          <div className="tutorial_beat"><span data-active={lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
+          <p id="tutorial_feedback">{status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
+          <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>
+          <div className="tutorial_controls">
+            <button id="tutorial_pause" type="button" onClick={pause}>{lesson === "paused" ? "Resume" : "Pause"}</button>
+            <button id="tutorial_leave" type="button" onClick={leave}>Practice without guides</button>
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -631,12 +723,14 @@ export function ArchiveOcellusApp() {
 
 function TrainerPage({ trainer, drill, flags }: Opened) {
   const [loading, setLoading] = useState<TrainerLoadingState>();
+  const teaching = drill.phase === "p4" && drill.region.tutorialEnabled();
 
   return (
-    <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
+    <TrainerApp trainer={trainer} autoStart={!teaching} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
         {drill.phase === "p4" && drill.config.choices.focus.key === "rhythm-loop" && <RhythmBanner region={drill.region} mode={drill.config.choices.rhythmMode.key} />}
+        {drill.phase === "p4" && teaching && <RhythmTutorial trainer={trainer} region={drill.region} ready={loading?.status === "ready"} />}
         <div id="hud_corner">
           <GameChat region={drill.region} />
           <DrillControls drill={drill} flags={flags} />

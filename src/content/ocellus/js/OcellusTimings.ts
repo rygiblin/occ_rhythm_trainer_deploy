@@ -895,6 +895,10 @@ export const OCELLUS_P4 = {
     { prepare: span(5), count: 15, period: span(2), impactAfterMark: span(1), spawn: tile(5, 3) } as const,
     "assumption", "unscaled", "local rhythm drill: fifteen ranged beats then fifteen melee beats with five neutral preparation ticks; practice settings, not verified game timings", NO_WIKI_PRACTICE, PRACTICE,
   ),
+  teaching: selected(
+    { tiles: { A: tile(5, 3), B: tile(6, 3) }, colours: { idle: "#78818b", step: "#4ee6a1", occupied: "#71bdff", attack: "#ffd36b" } } as const,
+    "assumption", "unscaled", "local teaching aid: two adjacent practice tiles and visual action colours; not game data", NO_WIKI_PRACTICE, PRACTICE,
+  ),
   presentation: PRESENTATION,
   gear: GEAR,
   choices: {
@@ -974,6 +978,10 @@ export const OCELLUS_P4 = {
         NO_WIKI_P4, owner("the orb opposite of where you enter", "2026-10-23"),
       ),
       "safe-floor": selected<OuterOrbTile>({ kind: "near-player" }, "footage-repeated", "team-4", "safe floor: outer orbs on the 5x5 edge, off the void and off the holes, collected without leaving the square", STRATEGIES_P4, vod("V1", "G74, G79, G128, G135"), ORB_OFF_HOLES),
+    }),
+    tutorial: choice("off", {
+      off: selected(false, "assumption", "unscaled", "ordinary practice without teaching markers", NO_WIKI_PRACTICE, PRACTICE),
+      on: selected(true, "assumption", "unscaled", "guided rhythm practice with tile and attack cues", NO_WIKI_PRACTICE, PRACTICE),
     }),
     rhythmMode: choice("alternating", {
       alternating: selected<readonly [VoidKind, ...VoidKind[]]>(["inner-void", "outer-void"], "assumption", "unscaled", "local rhythm practice alternates fifteen ranged and fifteen melee beats", NO_WIKI_PRACTICE, PRACTICE),
@@ -1480,6 +1488,7 @@ function resolveChoices(lookup: (name: ChoiceName) => string | undefined, reject
     orbPickupRadius: pick("orbPickupRadius"),
     outerOrbTile: pick("outerOrbTile"),
     rhythmMode: pick("rhythmMode"),
+    tutorial: pick("tutorial"),
     focus: pick("focus"),
     drillStart: pick("drillStart"),
   };

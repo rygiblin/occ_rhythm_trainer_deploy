@@ -1,5 +1,5 @@
 import { CacheRenderModel, CacheRenderReferences, CollisionType, InvisibleMovementBlocker, Mob } from "osrs-sdk";
-import type { Model, Projectile, Region, UnitBonuses } from "osrs-sdk";
+import type { Model, Projectile, Region, UILayerProjector, UnitBonuses } from "osrs-sdk";
 import type { DamageRange, DrillConfig } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { OcellusPlayer } from "../OcellusPlayer";
@@ -40,6 +40,8 @@ import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
 import { rhythmSectionAt } from "../p4/rhythm";
+import type { TutorialCue } from "../p4/tutorial";
+import { tutorialCue } from "../p4/tutorial";
 import { equipSetup } from "../OcellusLoadout";
 import { VoidRift } from "./VoidRift";
 
@@ -194,6 +196,27 @@ export class Ocellus extends Mob {
 
   rhythmAttackBlocked(): boolean {
     return this.config.choices.focus.key === "rhythm-loop" && rhythmSectionAt(this.binding.view().at, this.config.choices.rhythmMode.key).kind === "prepare";
+  }
+
+  teachingCue(): TutorialCue | null {
+    if (this.config.choices.focus.key !== "rhythm-loop" || !this.config.choices.tutorial.option.value) return null;
+    const run = this.runState();
+    return tutorialCue(run.kind === "running" ? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key);
+  }
+
+  override drawUILayer(tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, scale: number): void {
+    super.drawUILayer(tickPercent, projector, context, scale);
+    if (!projector.visible || this.teachingCue()?.kind !== "attack") return;
+    const at = projector.atHeight(projector.logicalHeight * 0.5);
+    context.save();
+    context.font = "bold 17px sans-serif";
+    context.textAlign = "center";
+    context.lineWidth = 5;
+    context.strokeStyle = "#111";
+    context.fillStyle = OCELLUS_P4.teaching.value.colours.attack;
+    context.strokeText("▼ ATTACK", at.x, at.y);
+    context.fillText("▼ ATTACK", at.x, at.y);
+    context.restore();
   }
 
   /** Blocking a player already under him would block every tile around that player, and the SDK finds no path out. */

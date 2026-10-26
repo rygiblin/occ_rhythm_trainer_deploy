@@ -37,6 +37,7 @@ Each feature file starts with an H1 title and one paragraph describing the user-
 
 ## Features
 
+- [Guided rhythm tutorial](./rhythm-tutorial.md) covers the start screen, native tile and boss cues, actual-result feedback, Pause/Resume and return to ordinary practice.
 - [Local rhythm practice](./rhythm-practice.md) covers the six ranged and six melee beat loop, automatic gear, preparation, floor changes and real-input attack timing.
 - [Arena render](./arena-render.md) covers page load, the floor, the player model and the HUD.
 - [Settings menu and run results](./settings-and-results.md) covers the Settings menu, the kill and death result panel and the `bosshp` link option.

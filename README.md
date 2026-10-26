@@ -10,6 +10,8 @@ Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the lay
 
 ## Local rhythm practice
 
+The version before the teaching aid is saved at Git tag `practice-v1-15-beats` on branch `codex/rhythm-practice`. A frozen playable copy is in the workspace's `saved-versions/rhythm-practice-v1/` folder. Open **Open saved practice v1.cmd** in the workspace to run that copy on port 8004.
+
 Use the **Mode** button in the practice banner to cycle between **Alternating 15**, **Ranged only**, and **Melee only**. Changing mode restarts the drill. Each set has fifteen beats and the same short preparation window. **Restart** keeps your selected mode.
 
 Double-click **Start rhythm practice.cmd** on Windows. It starts the local trainer and opens `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on`. The trainer alternates fifteen ranged explosion beats and fifteen melee beats, with a three-second preparation window before each set. The floor and gear change automatically. Mistakes do not end practice, and the boss cannot die.
@@ -17,6 +19,12 @@ Double-click **Start rhythm practice.cmd** on Windows. It starts the local train
 Click an adjacent tile to step one tile as the explosion marks, then click Ocellus to attack. Repeat every two ticks. Movement and attacks remain manual. A two-tile move avoids damage but does not earn the attack-speed bonus. The floor is visual in this mode, so you can stay beside the boss for both weapons. The purple explosion draws 35% smaller while its marked tile and timing remain unchanged.
 
 For a fresh Windows checkout, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local.ps1` once. This installs a project-local Node 22 runtime, the locked dependencies, the pinned SDK, and the public trainer's cache-2746 runtime assets. Git for Windows and npm must already be installed. Generated assets and the local runtime stay ignored. The asset checker fails if the public deployment no longer matches this checkout. The original cache-extraction workflow below remains available.
+
+## Teaching version
+
+Double-click **Start teaching version.cmd**, or open `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on`. Read the short introduction and click **Start guided practice**. Follow the green STEP tile, then the gold ATTACK cue on the boss. The two labeled tiles A and B stay one tile apart. Feedback reports actual successful step-and-attack pairs, missing attacks, late steps and moves that went too far. Pause and Resume let you stop to read. The mode button still selects alternating, ranged-only or melee-only practice.
+
+The teaching aid runs at normal speed and preserves the existing movement, damage and attack-delay rules. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option.
 
 ## Development
 

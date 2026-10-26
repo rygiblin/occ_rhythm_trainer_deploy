@@ -2,6 +2,13 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.3",
+    notes: [
+      "The teaching version labels two practice tiles and shows when to step and when to attack Ocellus.",
+      "Start when ready, pause to read, and use feedback from your actual dodges and attacks to learn the rhythm.",
+    ],
+  },
+  {
     version: "2026.10.26.2",
     notes: [
       "Local rhythm practice repeats fifteen ranged beats and fifteen melee beats, with automatic gear changes and a short pause between sets.",

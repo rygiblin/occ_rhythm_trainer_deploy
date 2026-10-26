@@ -14,13 +14,11 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26.2",
+  version: "2026.10.26.3",
   date: "2026-10-26",
   notes: [
-    "Local rhythm practice repeats fifteen ranged beats and fifteen melee beats, with automatic gear changes and a short pause between sets.",
-    "The purple explosion effect is 35% smaller, so the marked tile and your character are easier to see.",
-    "The practice-mode button switches between alternating fifteen-beat sets, ranged only, and melee only.",
-    "Windows players can open the local rhythm trainer with a double-click launcher after the local setup.",
+    "The teaching version labels two practice tiles and shows when to step and when to attack Ocellus.",
+    "Start when ready, pause to read, and use feedback from your actual dodges and attacks to learn the rhythm.",
   ],
 };
 
