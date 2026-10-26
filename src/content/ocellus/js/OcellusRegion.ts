@@ -11,7 +11,7 @@ import { ExplosionViews } from "./entities/ExplosionViews";
 import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "./entities/P4Views";
 import { Brazier, Walkway } from "./entities/Scenery";
 import { BossFootprint, Ocellus } from "./mobs/Ocellus";
-import { BRAZIERS, CURB, PLATFORM, voidUnder } from "./p4/floor";
+import { BRAZIERS, CURB, PLATFORM, VOID_MASKS, voidUnder } from "./p4/floor";
 import type { RhythmSection } from "./p4/rhythm";
 import { rhythmSectionAt } from "./p4/rhythm";
 import type { TutorialStatus } from "./p4/tutorial";
@@ -28,6 +28,7 @@ type Views = Readonly<{
   explosions: ExplosionViews;
   boss: BossLook;
   player: PlayerLook;
+  teaching: readonly TutorialTile[];
   chat: string[];
 }>;
 
@@ -194,9 +195,13 @@ export class OcellusRegion extends Region {
 
   initialiseRegion(): { player: Player } {
     this.teachingResult = { feedback: null, clean: 0, attempts: 0 };
+    const initialStyle = rhythmSectionAt(tick(0), this.config.choices.rhythmMode.key).style;
+    const teachingTiles = OCELLUS_P4.teaching.value.tiles[initialStyle];
+    const spawn = this.tutorialEnabled() ? teachingTiles.A
+      : this.config.choices.focus.key === "rhythm-loop" ? OCELLUS_P4.rhythm.value.spawn : OCELLUS_P4.geometry.playerSpawn.value;
     const player: OcellusPlayer = new OcellusPlayer(
       this,
-      { ...(this.config.choices.focus.key === "rhythm-loop" ? OCELLUS_P4.rhythm.value.spawn : OCELLUS_P4.geometry.playerSpawn.value) },
+      { ...spawn },
       () => ocellus.binding,
       (target) => target instanceof Ocellus && target.outOfMeleeReach(),
       () => ocellus.rhythmAttackBlocked(),
@@ -215,6 +220,7 @@ export class OcellusRegion extends Region {
       explosions: new ExplosionViews(this),
       boss: new BossLook(ocellus),
       player: new PlayerLook(player),
+      teaching: this.tutorialEnabled() ? [new TutorialTile(this, "A", teachingTiles, () => ocellus.teachingCue()), new TutorialTile(this, "B", teachingTiles, () => ocellus.teachingCue())] : [],
       chat: [],
     };
     [views.field, ...views.holes, views.orbs["inner-void"], views.orbs["outer-void"], views.fragment].forEach((view) => this.addEntity(view));
@@ -225,10 +231,7 @@ export class OcellusRegion extends Region {
     this.addMob(ocellus);
     this.setBoss(ocellus);
     this.mounted = { kind: "mounted", ocellus, player, views };
-    if (this.tutorialEnabled()) {
-      this.addEntity(new TutorialTile(this, "A", () => ocellus.teachingCue()));
-      this.addEntity(new TutorialTile(this, "B", () => ocellus.teachingCue()));
-    }
+    views.teaching.forEach((marker) => this.addEntity(marker));
     return { player };
   }
 
@@ -259,6 +262,8 @@ export class OcellusRegion extends Region {
     const { views } = this.mounted;
     const floor = voidUnder(row.phase);
     views.field.show(floor);
+    const guide = this.mounted.ocellus.teachingGuide();
+    if (guide) views.teaching.forEach((marker) => marker.show(guide.tiles));
     views.holes.forEach((hole) => hole.cover(floor));
     row.events.forEach((event) => present(event, views, row.playerAtPostTick.tile));
   }
@@ -285,10 +290,13 @@ export class OcellusRegion extends Region {
 
   tutorialStatus(): TutorialStatus | null {
     if (!this.tutorialEnabled() || this.mounted.kind === "unmounted") return null;
-    const cue = this.mounted.ocellus.teachingCue();
-    if (cue === null) return null;
+    const guide = this.mounted.ocellus.teachingGuide();
+    if (guide === null) return null;
     const run = this.mounted.ocellus.runState();
-    return { cue, ...this.teachingResult, tick: run.kind === "running" ? run.tick : null };
+    const at = run.kind === "running" ? run.tick : null;
+    const floor = run.kind === "running" ? voidUnder(run.phase) : null;
+    const safeFloor = floor === null || !VOID_MASKS[floor].contains(this.mounted.player.observe().tile);
+    return { ...guide, safeFloor, ...this.teachingResult, tick: at };
   }
 
   chat(): readonly string[] {

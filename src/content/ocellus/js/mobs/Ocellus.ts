@@ -40,8 +40,8 @@ import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
 import { rhythmSectionAt } from "../p4/rhythm";
-import type { TutorialCue } from "../p4/tutorial";
-import { tutorialCue } from "../p4/tutorial";
+import type { TutorialCue, TutorialGuide } from "../p4/tutorial";
+import { tutorialGuide } from "../p4/tutorial";
 import { equipSetup } from "../OcellusLoadout";
 import { VoidRift } from "./VoidRift";
 
@@ -198,10 +198,14 @@ export class Ocellus extends Mob {
     return this.config.choices.focus.key === "rhythm-loop" && rhythmSectionAt(this.binding.view().at, this.config.choices.rhythmMode.key).kind === "prepare";
   }
 
-  teachingCue(): TutorialCue | null {
+  teachingGuide(): TutorialGuide | null {
     if (this.config.choices.focus.key !== "rhythm-loop" || !this.config.choices.tutorial.option.value) return null;
     const run = this.runState();
-    return tutorialCue(run.kind === "running" ? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key);
+    return tutorialGuide(run.kind === "running" ? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key, this.holes.tiles());
+  }
+
+  teachingCue(): TutorialCue | null {
+    return this.teachingGuide()?.cue ?? null;
   }
 
   override drawUILayer(tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, scale: number): void {

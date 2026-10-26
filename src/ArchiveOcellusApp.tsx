@@ -613,15 +613,15 @@ const TEACHING_FEEDBACK: Readonly<Record<NonNullable<TeachingStatus["feedback"]>
   "clean-pair": "Good: one-tile dodge and attack together.",
   "dodge-without-attack": "Good step. Click Ocellus on the gold ATTACK cue.",
   hit: "The step was missed or late. Move on green STEP, before the burst.",
-  "moved-too-far": "You moved too far. Use only the neighboring A and B tiles.",
+  "moved-too-far": "You moved too far. Click the highlighted neighboring tile on green STEP.",
 };
 
 function teachingInstruction(cue: TeachingStatus["cue"]): string {
   switch (cue.kind) {
     case "prepare": return "GET READY";
-    case "step": return `STEP TO ${cue.target}`;
+    case "step": return "STEP ONE TILE";
     case "attack": return "ATTACK OCELLUS";
-    case "return-to-pair": return "RETURN TO TILE A";
+    case "return-to-pair": return "MOVE TO SAFE TILE";
     default: {
       const unhandled: never = cue;
       return unhandled;
@@ -666,13 +666,14 @@ function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerI
           <section>
             <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
             <h2 id="tutorial_title">Learn the two-tick rhythm</h2>
-            <p>Use the two neighboring tiles marked <b>A</b> and <b>B</b>.</p>
+            <p>The guide follows your position. Ranged stays outside the central square; melee stays on its inner rim, beside Ocellus.</p>
             <ol>
               <li><b className="tutorial_step_colour">Green STEP:</b> click the highlighted tile to move one tile.</li>
               <li><b className="tutorial_attack_colour">Gold ATTACK:</b> click Ocellus's body.</li>
-              <li>Repeat between A and B. One click per tick: step, attack, step, attack.</li>
+              <li>Repeat from wherever you stand safely. One click per tick: step, attack, step, attack.</li>
+              <li><b className="tutorial_position_colour">Blue POSITION:</b> move to the nearby safe tile before the next set.</li>
             </ol>
-            <p>Wait for each cue. Moving early, late, or two tiles loses the speed bonus. The floor and gear switch automatically.</p>
+            <p>HERE marks your safe position and STEP shows a safe neighbor. Green is always a one-tile dodge. The floor and gear switch automatically; the dark void floor deals damage.</p>
             <button id="tutorial_start" type="button" disabled={!ready} onClick={start}>{ready ? "Start guided practice" : "Loading practice…"}</button>
           </section>
         </div>
@@ -682,9 +683,9 @@ function RhythmTutorial({ trainer, region, ready }: Readonly<{ trainer: TrainerI
           <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
           <strong id="tutorial_cue">{lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
           <p id="tutorial_progress">{progress}</p>
-          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : cue?.kind === "step" ? "Click the green neighboring tile now." : cue?.kind === "attack" ? "Click the gold label on Ocellus's body now." : cue?.kind === "return-to-pair" ? "Click A to return to the teaching tiles." : "Stay on A or B and wait for green STEP."}</p>
+          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : cue?.kind === "step" ? "Click the green neighboring tile now." : cue?.kind === "attack" ? "Click the gold label on Ocellus's body now." : cue?.kind === "return-to-pair" ? `Click blue POSITION for ${style.toLowerCase()}: ${style === "Ranged" ? "outside the central square" : "on the inner rim"}.` : "Wait for the next cue. Blue repositions you; green starts the rhythm."}</p>
           <div className="tutorial_beat"><span data-active={lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
-          <p id="tutorial_feedback">{status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
+          <p id="tutorial_feedback">{status?.safeFloor === false ? "You are on the damaging void floor. Move to blue POSITION." : status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
           <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>
           <div className="tutorial_controls">
             <button id="tutorial_pause" type="button" onClick={pause}>{lesson === "paused" ? "Resume" : "Pause"}</button>

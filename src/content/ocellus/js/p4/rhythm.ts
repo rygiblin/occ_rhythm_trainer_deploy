@@ -1,10 +1,11 @@
 import type { Tick, TickSpan } from "../../../../sim/brands";
 import { span, tick } from "../../../../sim/brands";
-import type { Script, Slot } from "../../../../sim/schedule";
+import type { Focus, Script, Slot } from "../../../../sim/schedule";
 import { Schedule, slotTable } from "../../../../sim/schedule";
 import type { ResolvedChoices, RhythmMode } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { Beat, Phase, VoidKind } from "../P4Types";
+import type { Beat, Mechanic, Phase, VoidKind } from "../P4Types";
+import { floorRule } from "./floor";
 import type { P4Schedule } from "./schedule";
 
 const RECIPE = OCELLUS_P4.rhythm.value;
@@ -41,6 +42,8 @@ export function compileRhythmSchedule(choices: ResolvedChoices): P4Schedule {
       if (active % RECIPE.period === 0) beats.push({ kind: "explosion-mark", void: section.void, pulse });
       if (active % RECIPE.period === RECIPE.impactAfterMark) beats.push({ kind: "explosion-impact", void: section.void, pulse });
       beats.push({ kind: "explosions-occurring", void: section.void });
+      const floor = floorRule(section.void, choices);
+      if (choices.tutorial.option.value && floor.kind === "damages" && active >= floor.afterOnset) beats.push({ kind: "floor-damage", void: section.void });
     }
     return {
       phase: (cycle): Phase => {
@@ -61,5 +64,8 @@ export function compileRhythmSchedule(choices: ResolvedChoices): P4Schedule {
     },
     breakpoints: [],
   };
-  return new Schedule(script, () => "explosions", choices.focus.option.value, { kind: "cycle-start" }, tick(length));
+  const focus: Focus<Mechanic> = choices.tutorial.option.value
+    ? { kind: "drill", mechanics: ["explosions", "void-floor"] }
+    : choices.focus.option.value;
+  return new Schedule(script, (beat) => beat.kind === "floor-damage" ? "void-floor" : "explosions", focus, { kind: "cycle-start" }, tick(length));
 }

@@ -6,6 +6,7 @@ export const CHANGELOG: Changelog = [
     notes: [
       "The teaching version labels two practice tiles and shows when to step and when to attack Ocellus.",
       "Start when ready, pause to read, and use feedback from your actual dodges and attacks to learn the rhythm.",
+      "Teaching markers follow your position and point to a safe neighboring step, with a blue positioning cue when you need to change sides of the floor.",
     ],
   },
   {

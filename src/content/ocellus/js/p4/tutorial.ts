@@ -1,34 +1,58 @@
 import type { Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
+import { beside } from "../../../../sim/tiles";
 import type { RhythmMode } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { TickRow } from "../P4Types";
 import { rhythmSectionAt } from "./rhythm";
+import { FOOTPRINT, PLATFORM, VOID_MASKS } from "./floor";
 
-export type TeachingTile = keyof typeof OCELLUS_P4.teaching.value.tiles;
 type Style = "ranged" | "melee";
+export type TeachingPair = Readonly<{ A: Tile; B: Tile }>;
+export type TeachingTile = keyof TeachingPair;
 export type TutorialCue =
   | Readonly<{ kind: "prepare"; style: Style; remaining: TickSpan }>
   | Readonly<{ kind: "step"; style: Style; beat: number; target: TeachingTile; tile: Tile }>
   | Readonly<{ kind: "attack"; style: Style; beat: number }>
   | Readonly<{ kind: "return-to-pair"; style: Style; target: "A"; tile: Tile }>;
 export type TutorialFeedback = "clean-pair" | "dodge-without-attack" | "hit" | "moved-too-far";
-export type TutorialStatus = Readonly<{ cue: TutorialCue; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
+export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; safeFloor: boolean; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
+export type TutorialGuide = Readonly<{ cue: TutorialCue; tiles: TeachingPair }>;
 
-const TILES = OCELLUS_P4.teaching.value.tiles;
 export const sameTile = (left: Tile, right: Tile): boolean => left.x === right.x && left.y === right.y;
 
-export function tutorialCue(at: Tick | null, player: Tile, mode: RhythmMode): TutorialCue {
-  const current = rhythmSectionAt(at ?? tick(0), mode);
-  if (!sameTile(player, TILES.A) && !sameTile(player, TILES.B)) return { kind: "return-to-pair", style: current.style, target: "A", tile: TILES.A };
-  if (at === null) return { kind: "prepare", style: current.style, remaining: OCELLUS_P4.rhythm.value.prepare };
-  const next = rhythmSectionAt(tick(at + 1), mode);
-  if (next.kind === "prepare") return { kind: "prepare", style: next.style, remaining: next.remaining };
-  if (current.kind === "prepare" || current.beat !== next.beat) {
-    const target = sameTile(player, TILES.A) ? "B" : "A";
-    return { kind: "step", style: next.style, beat: next.beat, target, tile: TILES[target] };
+function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TeachingPair {
+  const section = rhythmSectionAt(at ?? tick(0), mode);
+  const safe = (at: Tile): boolean => PLATFORM.contains(at) && !FOOTPRINT.contains(at) && !VOID_MASKS[section.void].contains(at) && !holes.some((hole) => sameTile(at, hole));
+  const pairAt = (anchor: Tile): TeachingPair | null => {
+    if (!safe(anchor)) return null;
+    const horizontal = anchor.x % 2 === 1 ? "east" : "west";
+    const neighbors = [beside(anchor, horizontal), beside(anchor, horizontal === "east" ? "west" : "east"), beside(anchor, "north"), beside(anchor, "south")];
+    const step = neighbors.find(safe);
+    return step ? { A: anchor, B: step } : null;
+  };
+  const here = pairAt(player);
+  if (here) return here;
+  const distance = (at: Tile): number => Math.abs(at.x - player.x) + Math.abs(at.y - player.y);
+  const candidates = [...PLATFORM.tiles()].sort((left, right) => distance(left) - distance(right) || left.y - right.y || left.x - right.x);
+  for (const candidate of candidates) {
+    const pair = pairAt(candidate);
+    if (pair) return pair;
   }
-  return { kind: "attack", style: next.style, beat: next.beat };
+  throw new RangeError(`the ${section.style} tutorial has no safe neighboring tiles`);
+}
+
+export function tutorialGuide(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TutorialGuide {
+  const current = rhythmSectionAt(at ?? tick(0), mode);
+  const tiles = teachingTilesAt(at, player, mode, holes);
+  if (!sameTile(player, tiles.A)) return { tiles, cue: { kind: "return-to-pair", style: current.style, target: "A", tile: tiles.A } };
+  if (at === null) return { tiles, cue: { kind: "prepare", style: current.style, remaining: OCELLUS_P4.rhythm.value.prepare } };
+  const next = rhythmSectionAt(tick(at + 1), mode);
+  if (next.kind === "prepare") return { tiles, cue: { kind: "prepare", style: next.style, remaining: next.remaining } };
+  if (current.kind === "prepare" || current.beat !== next.beat) {
+    return { tiles, cue: { kind: "step", style: next.style, beat: next.beat, target: "B", tile: tiles.B } };
+  }
+  return { tiles, cue: { kind: "attack", style: next.style, beat: next.beat } };
 }
 
 export function tutorialFeedback(row: TickRow): TutorialFeedback | null {
