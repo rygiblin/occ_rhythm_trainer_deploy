@@ -19,6 +19,45 @@
         image-rendering: pixelated;
       }
 
+      #rhythm_banner {
+        position: absolute;
+        top: 72px;
+        left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 360px;
+        max-width: calc(100% - 80px);
+        padding: 12px 18px;
+        border: 1px solid #67c884;
+        border-radius: 4px;
+        background: rgba(15, 20, 17, 0.9);
+        color: #b8f4c9;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      #rhythm_banner[data-style="melee"] {
+        border-color: #e99b69;
+        color: #ffd2b5;
+      }
+
+      #rhythm_banner strong { font-size: 20px; }
+      #rhythm_banner span { font-size: 12px; color: #eee; }
+
+      #rhythm_mode {
+        align-self: center;
+        padding: 6px 12px;
+        border: 1px solid currentColor;
+        border-radius: 3px;
+        background: #22271f;
+        color: inherit;
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+
       #hud_corner {
         position: absolute;
         bottom: 4px;

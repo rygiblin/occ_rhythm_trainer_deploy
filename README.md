@@ -8,6 +8,16 @@ Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. Add `?invincib
 
 Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the layout of [ColosseumTrainer](https://github.com/Supalosa/ColosseumTrainer).
 
+## Local rhythm practice
+
+Use the **Mode** button in the practice banner to cycle between **Alternating 15**, **Ranged only**, and **Melee only**. Changing mode restarts the drill. Each set has fifteen beats and the same short preparation window. **Restart** keeps your selected mode.
+
+Double-click **Start rhythm practice.cmd** on Windows. It starts the local trainer and opens `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on`. The trainer alternates fifteen ranged explosion beats and fifteen melee beats, with a three-second preparation window before each set. The floor and gear change automatically. Mistakes do not end practice, and the boss cannot die.
+
+Click an adjacent tile to step one tile as the explosion marks, then click Ocellus to attack. Repeat every two ticks. Movement and attacks remain manual. A two-tile move avoids damage but does not earn the attack-speed bonus. The floor is visual in this mode, so you can stay beside the boss for both weapons. The purple explosion draws 35% smaller while its marked tile and timing remain unchanged.
+
+For a fresh Windows checkout, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local.ps1` once. This installs a project-local Node 22 runtime, the locked dependencies, the pinned SDK, and the public trainer's cache-2746 runtime assets. Git for Windows and npm must already be installed. Generated assets and the local runtime stay ignored. The asset checker fails if the public deployment no longer matches this checkout. The original cache-extraction workflow below remains available.
+
 ## Development
 
 Requires Node 22.

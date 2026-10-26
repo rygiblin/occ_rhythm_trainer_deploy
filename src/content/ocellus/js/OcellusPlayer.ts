@@ -14,7 +14,7 @@ export type PlayerHost = Readonly<{
 export type MeleeGuard = (target: Unit) => boolean;
 
 export class OcellusPlayer extends Player {
-  constructor(region: Region, location: Location, private readonly host: () => PlayerHost, private readonly meleeBlocked: MeleeGuard) {
+  constructor(region: Region, location: Location, private readonly host: () => PlayerHost, private readonly meleeBlocked: MeleeGuard, private readonly attackBlocked: () => boolean = () => false) {
     super(region, location);
   }
 
@@ -51,6 +51,7 @@ export class OcellusPlayer extends Player {
   }
 
   override attack(): boolean {
+    if (this.attackBlocked()) return false;
     const swingsMelee = !this.manualSpellCastSelection && this.equipment.weapon?.isMeleeAttack === true;
     if (swingsMelee && this.aggro && this.meleeBlocked(this.aggro)) return false;
     return super.attack();

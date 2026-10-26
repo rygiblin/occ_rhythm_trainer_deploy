@@ -8,6 +8,7 @@ import type { Beat, BossOverhead, Mechanic, Phase, Special, TransitionKind, Void
 import { ordinal } from "../P4Types";
 import { floorRule } from "./floor";
 import { roll } from "../roll";
+import { compileRhythmSchedule } from "./rhythm";
 
 export type P4Schedule = Schedule<"lead-in" | "cycle", Phase, Beat, Mechanic>;
 
@@ -63,6 +64,7 @@ function mechanicOf(beat: Beat): Mechanic | null {
 }
 
 export function compileSchedule(seed: Seed, choices: ResolvedChoices): P4Schedule {
+  if (choices.focus.key === "rhythm-loop") return compileRhythmSchedule(choices);
   const { leadIn, cycle: stages, overheads, lifeforce, special, bossHeals, rifts, explosion: explosionCues, presentation } = OCELLUS_P4;
   const hidden = leadIn.hiddenFor.value;
   const leadInLength = hidden + leadIn.presentFor.value;

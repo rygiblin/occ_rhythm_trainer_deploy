@@ -44,7 +44,7 @@ function urls(file: string): readonly string[] {
 
 function parseRules(text: string): readonly Rule[] {
   const rules: { pattern: RegExp; cacheControl: string[] }[] = [];
-  text.split("\n").forEach((line, index) => {
+  text.split(/\r?\n/).forEach((line, index) => {
     if (line.trim() === "" || line.trimStart().startsWith("#")) return;
     const header = /^\s+([^\s:]+):\s*(.*)$/.exec(line);
     const rule = rules[rules.length - 1];

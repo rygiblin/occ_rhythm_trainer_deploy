@@ -5,12 +5,15 @@ import { OCELLUS_P4 } from "./OcellusTimings";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { SoundId, Tile } from "../../../sim/brands";
+import { tick } from "../../../sim/brands";
 import type { FightEvent, FightLog, FightSnapshot, PlayerHitSource, VoidKind } from "./P4Types";
 import { ExplosionViews } from "./entities/ExplosionViews";
 import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "./entities/P4Views";
 import { Brazier, Walkway } from "./entities/Scenery";
 import { BossFootprint, Ocellus } from "./mobs/Ocellus";
 import { BRAZIERS, CURB, PLATFORM, voidUnder } from "./p4/floor";
+import type { RhythmSection } from "./p4/rhythm";
+import { rhythmSectionAt } from "./p4/rhythm";
 
 const GRID = PLATFORM.extent();
 
@@ -124,7 +127,15 @@ function present(event: FightEvent, views: Views, player: Tile): void {
 
 export class OcellusRegion extends Region {
   private mounted: Mounted = { kind: "unmounted" };
-  invincible = false;
+  private invincibleSetting = false;
+
+  get invincible(): boolean {
+    return this.config.choices.focus.key === "rhythm-loop" || this.invincibleSetting;
+  }
+
+  set invincible(value: boolean) {
+    this.invincibleSetting = value;
+  }
 
   constructor(private readonly config: DrillConfig) {
     super();
@@ -180,12 +191,16 @@ export class OcellusRegion extends Region {
   initialiseRegion(): { player: Player } {
     const player: OcellusPlayer = new OcellusPlayer(
       this,
-      { ...OCELLUS_P4.geometry.playerSpawn.value },
+      { ...(this.config.choices.focus.key === "rhythm-loop" ? OCELLUS_P4.rhythm.value.spawn : OCELLUS_P4.geometry.playerSpawn.value) },
       () => ocellus.binding,
       (target) => target instanceof Ocellus && target.outOfMeleeReach(),
+      () => ocellus.rhythmAttackBlocked(),
     );
     const ocellus: Ocellus = new Ocellus(this, this.config, player, () => this.invincible);
-    dress(player, this.config.choices.setup.option.value);
+    const setup = this.config.choices.focus.key === "rhythm-loop"
+      ? OCELLUS_P4.choices.setup.options[rhythmSectionAt(tick(0), this.config.choices.rhythmMode.key).style].value
+      : this.config.choices.setup.option.value;
+    dress(player, setup);
     Object.values(sounds).forEach((sound) => SoundCache.preload(cacheSound(sound.value)));
     const views: Views = {
       field: new VoidField(this),
@@ -239,6 +254,12 @@ export class OcellusRegion extends Region {
       boss: { npcId: OCELLUS_P4.boss.npcId.value, hp: ocellus.currentStats.hitpoint, maxHp: ocellus.stats.hitpoint, visible: ocellus.visible(), defence: ocellus.currentStats.defence },
       player: loadoutSnapshot(player),
     };
+  }
+
+  rhythmStatus(): RhythmSection | null {
+    if (this.config.choices.focus.key !== "rhythm-loop" || this.mounted.kind === "unmounted") return null;
+    const run = this.mounted.ocellus.runState();
+    return run.kind === "running" ? rhythmSectionAt(run.tick, this.config.choices.rhythmMode.key) : null;
   }
 
   chat(): readonly string[] {

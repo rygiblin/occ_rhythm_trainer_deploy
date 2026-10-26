@@ -33,6 +33,12 @@ describe("_headers", () => {
 });
 
 describe("servedCache", () => {
+  test("accepts Windows line endings in the build's headers file", () => {
+    expect(servedCache("/*.png\r\n  Cache-Control: public, max-age=31536000, immutable\r\n", ["025083410fbfe0d5d502.png"])).toEqual([
+      { url: "/025083410fbfe0d5d502.png", cacheControl: "public, max-age=31536000, immutable", verdict: "immutable" },
+    ]);
+  });
+
   test("guard, checker contract: joins every matching rule's Cache-Control, so a splat over the root also reaches nested files and the page", () => {
     const headers = ["/*.png", "  Cache-Control: public, max-age=31536000, immutable", "/osrs-assets/item-icons/*", "  Cache-Control: public, max-age=86400", "/*", "  Cache-Control: immutable"].join("\n");
 

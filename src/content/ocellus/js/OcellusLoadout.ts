@@ -77,8 +77,14 @@ function wear<S extends GearSlot>(equipment: UnitEquipment, slot: S, setup: Setu
 
 const STANCES: Readonly<Record<typeof OCELLUS_P4.gear.scytheStance.value, AttackStyle>> = { jab: AttackStyle.AGGRESSIVECRUSH };
 
-export function dress(player: Player, worn: Setup): void {
+export function equipSetup(player: Player, worn: Setup): void {
   for (const slot of GEAR_SLOTS) wear(player.equipment, slot, worn);
+  player.equipmentChanged();
+  AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[OCELLUS_P4.gear.scytheStance.value]);
+}
+
+export function dress(player: Player, worn: Setup): void {
+  equipSetup(player, worn);
 
   const switches: Item[] = [create("weapon", OCELLUS_P4.gear.specialWeapon.value)];
   for (const option of Object.values(OCELLUS_P4.choices.setup.options)) {
@@ -88,8 +94,6 @@ export function dress(player: Player, worn: Setup): void {
   }
   const supplies = OCELLUS_P4.gear.supplies.value.map((key) => SUPPLIES[key]());
   [...switches, ...supplies].forEach((item, index) => (player.inventory[index] = item));
-  player.equipmentChanged();
-  AttackStylesController.controller.setWeaponAttackStyle(new OcellusScythe(), STANCES[OCELLUS_P4.gear.scytheStance.value]);
 }
 
 function itemId(item: Item | null | undefined): number | null {

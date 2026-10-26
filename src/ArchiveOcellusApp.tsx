@@ -7,7 +7,7 @@ import { OcellusRegion } from "./content/ocellus/js/OcellusRegion";
 import type { P3Region } from "./content/ocellus/js/P3Region";
 import type { P1Region } from "./content/ocellus/js/P1Region";
 import type { P2Region } from "./content/ocellus/js/P2Region";
-import type { DrillConfig, P1Config, P2Config, P3Config } from "./content/ocellus/js/OcellusTimings";
+import type { DrillConfig, P1Config, P2Config, P3Config, RhythmMode } from "./content/ocellus/js/OcellusTimings";
 import { OCELLUS_P4, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { P2End, P2Log, P2Snapshot } from "./content/ocellus/js/P2Types";
@@ -351,7 +351,7 @@ function DrillControls({ drill, flags }: Readonly<{ drill: Drill; flags: BuildFl
           Area sounds <input id="area_sound" type="checkbox" checked={playsAreaAudio} onChange={(event) => Settings.set({ playsAreaAudio: event.target.checked })} />
         </label>
         <label>
-          Invincible <input id="invincible" type="checkbox" defaultChecked={region.invincible} onChange={(event) => { region.invincible = event.target.checked; }} />
+          Invincible <input id="invincible" type="checkbox" defaultChecked={region.invincible} disabled={currentFocus === "rhythm-loop"} onChange={(event) => { region.invincible = event.target.checked; }} />
         </label>
         <label>
           Send anonymous performance data <input id="perf_data" type="checkbox" checked={sendsPerfData} onChange={(event) => { setPerfDataAllowed(event.target.checked); setSendsPerfData(event.target.checked); }} />
@@ -576,6 +576,34 @@ function RunResultPanel({ drill, flags }: Readonly<{ drill: Drill; flags: BuildF
 const CHAT_LINES_SHOWN = 5;
 const CHAT_POLL_MS = 300;
 
+const RHYTHM_MODES: Readonly<Record<RhythmMode, Readonly<{ label: string; next: RhythmMode }>>> = {
+  alternating: { label: "Alternating 15", next: "ranged" },
+  ranged: { label: "Ranged only", next: "melee" },
+  melee: { label: "Melee only", next: "alternating" },
+};
+
+function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: RhythmMode }>) {
+  const [section, setSection] = useState(() => region.rhythmStatus());
+  useEffect(() => {
+    const poll = window.setInterval(() => setSection(region.rhythmStatus()), CHAT_POLL_MS);
+    return () => window.clearInterval(poll);
+  }, [region]);
+  const style = section?.style === "melee" ? "Melee" : "Ranged";
+  const currentMode = RHYTHM_MODES[mode];
+  const switchMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("rhythmMode", currentMode.next);
+    window.location.assign(url.href);
+  };
+  return (
+    <div id="rhythm_banner" data-style={section?.style ?? "ranged"}>
+      <strong>{section === null ? "Rhythm practice · Get ready" : section.kind === "prepare" ? `Next: ${style} · ${section.remaining} ticks` : `${style} · ${section.beat} / ${section.count}`}</strong>
+      <span>Step one tile, then click Ocellus. Repeat every 2 ticks. Gear switches automatically.</span>
+      <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={`Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching mode starts a fresh practice set.">Mode: {currentMode.label}</button>
+    </div>
+  );
+}
+
 function GameChat({ region }: Readonly<{ region: Readonly<{ chat(): readonly string[] }> }>) {
   const [lines, setLines] = useState<readonly string[]>([]);
   useEffect(() => {
@@ -608,6 +636,7 @@ function TrainerPage({ trainer, drill, flags }: Opened) {
     <TrainerApp trainer={trainer} onLoadingStateChange={setLoading}>
       <GameOverlay>
         <TrainerLoadingSplash state={loading} />
+        {drill.phase === "p4" && drill.config.choices.focus.key === "rhythm-loop" && <RhythmBanner region={drill.region} mode={drill.config.choices.rhythmMode.key} />}
         <div id="hud_corner">
           <GameChat region={drill.region} />
           <DrillControls drill={drill} flags={flags} />

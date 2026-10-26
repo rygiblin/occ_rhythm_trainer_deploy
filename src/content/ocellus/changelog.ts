@@ -2,6 +2,15 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.2",
+    notes: [
+      "Local rhythm practice repeats fifteen ranged beats and fifteen melee beats, with automatic gear changes and a short pause between sets.",
+      "The purple explosion effect is 35% smaller, so the marked tile and your character are easier to see.",
+      "The practice-mode button switches between alternating fifteen-beat sets, ranged only, and melee only.",
+      "Windows players can open the local rhythm trainer with a double-click launcher after the local setup.",
+    ],
+  },
+  {
     version: "2026.10.26",
     notes: [
       "The 2D view is gone, and the 3D view draws each frame in about 14 draw calls instead of about 550. Gear switches after your first hitch far less. A typical switch's slowest frame drops from about 50 ms to one frame at 60 Hz.",

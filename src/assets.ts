@@ -13,7 +13,7 @@ const p2Key = (name: string) => `p2${name.charAt(0).toUpperCase()}${name.slice(1
  * Phase 2's models, poses and spotanims are extracted only when ARCHIVE_P2 is on, so a build with the drill hidden asks the
  * cache for nothing it doesn't play. Cache 2746 also lacks three of its poses' frame sounds (12814, 12825, 12832).
  */
-const { p2 } = readBuildFlags();
+const { p1, p2, p3 } = readBuildFlags();
 
 const P1_LOOK = OCELLUS_P1.presentation;
 const p1CrackPieces = [...Object.values(P1_LOOK.crackPieces.straight), ...Object.values(P1_LOOK.crackPieces.diagonal)].flatMap(({ value }) => [value.start, value.piece, value.end]);
@@ -24,9 +24,9 @@ const p1SpotAnims = [
 
 export const ARCHIVE_OCELLUS_ASSETS = {
   npcs: {
-    ocellus: { id: boss.npcId.value, animations: { ...sequences(presentation.bossPoses), ...sequences(OCELLUS_P3.bossPoses) } },
+    ocellus: { id: boss.npcId.value, animations: { ...sequences(presentation.bossPoses), ...(p3 ? sequences(OCELLUS_P3.bossPoses) : {}) } },
     voidRift: { id: rifts.npcId.value, animations: sequences(rifts.poses) },
-    ocellusP1: { id: OCELLUS_P1.boss.npcId.value, animations: sequences(P1_LOOK.bossPoses) },
+    ...(p1 ? { ocellusP1: { id: OCELLUS_P1.boss.npcId.value, animations: sequences(P1_LOOK.bossPoses) } } : {}),
     ...(p2 ? { ocellusP2: { id: OCELLUS_P2.ocellusNpcId.value, animations: sequences(OCELLUS_P2.bossPoses) } } : {}),
   },
   models: {
@@ -45,7 +45,7 @@ export const ARCHIVE_OCELLUS_ASSETS = {
     ...Object.entries(presentation.transitionTells).map(([variant, spotAnim]) => [`${variant.replace(/-(.)/g, (_, letter: string) => letter.toUpperCase())}Tell`, { id: spotAnim.value }]),
     ["riftFlare", { id: rifts.burstFlare.value }],
     ["explosion", { id: explosion.spotAnim.value }],
-    ...p1SpotAnims,
+    ...(p1 ? p1SpotAnims : []),
     ...(p2 ? Object.entries(OCELLUS_P2.spotAnims).map(([name, spotAnim]) => [p2Key(name), { id: spotAnim.value }]) : []),
   ]),
   sounds: Object.fromEntries(Object.entries(presentation.sounds).map(([cue, sound]) => [cue, { id: sound.value }])),
@@ -99,7 +99,7 @@ export const ARCHIVE_OCELLUS_OVERRIDES = {
 } as const satisfies CacheAssets;
 
 /** The asset tool extracts no sprites, so scripts/extract-sprites.mjs writes these beside its output. */
-export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [...Object.values(presentation.overheadIcons).map((icon) => icon.value), P1_LOOK.overheadIcon.value];
+export const ARCHIVE_OCELLUS_SPRITES: readonly SpriteFrame[] = [...Object.values(presentation.overheadIcons).map((icon) => icon.value), ...(p1 ? [P1_LOOK.overheadIcon.value] : [])];
 
 export function spriteFile({ archive, frame }: SpriteFrame): string {
   return `sprites/${archive}-${frame}.png`;

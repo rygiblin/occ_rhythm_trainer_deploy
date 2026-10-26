@@ -12,6 +12,8 @@
     "node": ">=22 <23"
   },
   "scripts": {
+    "practice": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/start-rhythm.ps1",
+    "practice:assets": "tsx scripts/download-practice-assets.mjs",
     "start": "tsx src/assetBundle/check.ts && webpack serve --mode development",
     "build": "tsx src/assetBundle/check.ts && webpack --mode production && tsx src/cacheHeaders/check.ts dist && tsx src/phaseCode/check.ts dist",
     "test": "vitest run",

@@ -39,6 +39,8 @@ import type { Orbs, OrbStep } from "../p4/orb";
 import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS, releaseUnclaimedOuterOrb, returnDueOrbs } from "../p4/orb";
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
+import { rhythmSectionAt } from "../p4/rhythm";
+import { equipSetup } from "../OcellusLoadout";
 import { VoidRift } from "./VoidRift";
 
 type BossStep = Readonly<{ player: PlayerObservation; bossHp: number; rifts: readonly Rift[] }>;
@@ -123,10 +125,17 @@ export class Ocellus extends Mob {
     "tick-opened": ({ time }) => {
       this.healSplats = this.healSplats.filter((splat) => splat.lastShown >= time.encounter);
     },
-    "before-npc-hits": ({ time, incoming }) => ({
-      snapshot: { player: this.target.observe(), bossHp: this.currentStats.hitpoint, rifts: this.rifts },
-      outputs: incoming.flatMap((landing) => this.judgeIncoming(landing, time.encounter)),
-    }),
+    "before-npc-hits": ({ time, incoming }) => {
+      let damageLeft = this.config.choices.focus.key === "rhythm-loop" ? Math.max(0, this.currentStats.hitpoint - 1) : Infinity;
+      return {
+        snapshot: { player: this.target.observe(), bossHp: this.currentStats.hitpoint, rifts: this.rifts },
+        outputs: incoming.flatMap((landing) => {
+          const outputs = this.judgeIncoming(landing, time.encounter, damageLeft);
+          for (const output of outputs) if (output.kind === "judge-incoming") damageLeft -= output.damage;
+          return outputs;
+        }),
+      };
+    },
     "npc-turn": ({ time, snapshot, player }) => this.turn(time.encounter, { ...snapshot.player, attackDelay: player.attackDelay }),
     "hit-applied": ({ hit }) => this.landed(hit),
     "player-hits-settled": ({ time, landed, player }) => this.settlePlayerHits(time.encounter, landed, player),
@@ -181,6 +190,10 @@ export class Ocellus extends Mob {
 
   outOfMeleeReach(): boolean {
     return this.phase().boss === "present-out-of-melee-reach";
+  }
+
+  rhythmAttackBlocked(): boolean {
+    return this.config.choices.focus.key === "rhythm-loop" && rhythmSectionAt(this.binding.view().at, this.config.choices.rhythmMode.key).kind === "prepare";
   }
 
   /** Blocking a player already under him would block every tile around that player, and the SDK finds no path out. */
@@ -238,6 +251,13 @@ export class Ocellus extends Mob {
 
   private turn(at: Tick, player: PlayerAtTurn): Readonly<{ outputs: readonly TurnOutput[]; ending: RunEnd | null }> {
     const moment = this.schedule.at(at);
+    if (this.config.choices.focus.key === "rhythm-loop") {
+      const section = rhythmSectionAt(at, this.config.choices.rhythmMode.key);
+      if (section.kind === "prepare" && section.remaining === OCELLUS_P4.rhythm.value.prepare) {
+        equipSetup(this.target, OCELLUS_P4.choices.setup.options[section.style].value);
+        this.target.attackDelay = 0;
+      }
+    }
     const phased = logs(...phaseEvents(at > 0 ? this.schedule.at(tick(at - 1)).phase : null, moment.phase, at));
     if (this.currentStats.hitpoint <= 0) return { outputs: [...phased, ...logs({ kind: "run-ended", at, reason: "kill" })], ending: "kill" };
     const destroyed = this.destroyFallenRifts(at, player.attackDelay);
@@ -251,9 +271,9 @@ export class Ocellus extends Mob {
     return landedDamage(this.judge(at, hit.style, hit.launchedAt), hit);
   }
 
-  private judgeIncoming(landing: IncomingHit, at: Tick): readonly (Output | Judgement)[] {
+  private judgeIncoming(landing: IncomingHit, at: Tick, damageLeft: number): readonly (Output | Judgement)[] {
     const verdict = this.judge(at, landing.style, landing.launchedAt);
-    const judged: Judgement = { kind: "judge-incoming", hit: landing, damage: landedDamage(verdict, landing) };
+    const judged: Judgement = { kind: "judge-incoming", hit: landing, damage: Math.min(damageLeft, landedDamage(verdict, landing)) };
     const reflected = verdict.outcome === "blocked" ? this.reflect(verdict, landing.requested, at) : [];
     return [judged, ...reflected, ...logs({ kind: "player-hit-judged", at, style: landing.style, outcome: verdict.outcome, requested: landing.requested })];
   }

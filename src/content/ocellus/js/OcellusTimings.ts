@@ -39,7 +39,7 @@ const FIGHT_LOGS: Readonly<Record<FightLog, FightLogEntry>> = {
   L8: { recorded: "2026-10-23", fight: "raid", players: 7, reached: "a wipe in phase 3, after one quadrant fell", records: "as L6" },
 };
 
-type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24";
+type OwnerDate = "2026-10-21" | "2026-10-22" | "2026-10-23" | "2026-10-24" | "2026-10-26";
 
 type Source =
   | Readonly<{ kind: "fight-log"; log: FightLog; at: string }>
@@ -714,10 +714,12 @@ const LIFEFORCE_ORB: LifeforceOrbRecipe = {
 type ExplosionSeriesRecipe = Readonly<{
   seriesStartsAfterHit: Selected<TickSpan>;
   spotAnim: Selected<number>;
+  visualScale: Selected<number>;
   dodge: Selected<Readonly<{ radius: number; attackDelayCut: TickSpan }>>;
 }>;
 
 const EXPLOSION: ExplosionSeriesRecipe = {
+  visualScale: selected(0.65, "assumption", "unscaled", "local visual preference: draw the explosion at 65% of its authored size; not a verified game measurement", NO_WIKI_PRACTICE, owner("make the explosion animation smaller", "2026-10-26")),
   seriesStartsAfterHit: selected(span(2), "footage-repeated", "team-4-and-5", "sound 12638 two ticks after the lifeforce hit, before the first mark of every option; what the server marks with it is inferred", NO_WIKI_TICKS, vod("V1", "3:54:04.77, t14"), vod("V2", "5:20:27.89, t14")),
   spotAnim: selected(
     4339,
@@ -889,6 +891,10 @@ export const OCELLUS_P4 = {
   floorHoles: FLOOR_HOLES,
   lifeforceOrb: LIFEFORCE_ORB,
   explosion: EXPLOSION,
+  rhythm: selected(
+    { prepare: span(5), count: 15, period: span(2), impactAfterMark: span(1), spawn: tile(5, 3) } as const,
+    "assumption", "unscaled", "local rhythm drill: fifteen ranged beats then fifteen melee beats with five neutral preparation ticks; practice settings, not verified game timings", NO_WIKI_PRACTICE, PRACTICE,
+  ),
   presentation: PRESENTATION,
   gear: GEAR,
   choices: {
@@ -969,12 +975,18 @@ export const OCELLUS_P4 = {
       ),
       "safe-floor": selected<OuterOrbTile>({ kind: "near-player" }, "footage-repeated", "team-4", "safe floor: outer orbs on the 5x5 edge, off the void and off the holes, collected without leaving the square", STRATEGIES_P4, vod("V1", "G74, G79, G128, G135"), ORB_OFF_HOLES),
     }),
+    rhythmMode: choice("alternating", {
+      alternating: selected<readonly [VoidKind, ...VoidKind[]]>(["inner-void", "outer-void"], "assumption", "unscaled", "local rhythm practice alternates fifteen ranged and fifteen melee beats", NO_WIKI_PRACTICE, PRACTICE),
+      ranged: selected<readonly [VoidKind, ...VoidKind[]]>(["inner-void"], "assumption", "unscaled", "local rhythm practice repeats fifteen ranged beats", NO_WIKI_PRACTICE, PRACTICE),
+      melee: selected<readonly [VoidKind, ...VoidKind[]]>(["outer-void"], "assumption", "unscaled", "local rhythm practice repeats fifteen melee beats", NO_WIKI_PRACTICE, PRACTICE),
+    }),
     focus: choice("full-fight", {
       "full-fight": selected<Focus<Mechanic>>({ kind: "full-fight" }, "assumption", "unscaled", "every mechanic acts", NO_WIKI_PRACTICE, PRACTICE),
       "void-floor": drill("void-floor"),
       "lifeforce-orb": drill("lifeforce-orb"),
       "orb-retrieval": drill("lifeforce-orb", "void-floor"),
       explosions: drill("explosions"),
+      "rhythm-loop": drill("explosions"),
       "transition-attacks": drill("transition-attacks"),
       "boss-heals": drill("transition-attacks", "lifeforce-orb"),
       rifts: drill("rifts"),
@@ -1412,6 +1424,7 @@ type Choices = typeof OCELLUS_P4.choices;
 type ChoiceName = keyof Choices;
 type OptionsOf<K extends ChoiceName> = Choices[K]["options"];
 type OptionKey<K extends ChoiceName> = keyof OptionsOf<K> & string;
+export type RhythmMode = OptionKey<"rhythmMode">;
 const SCATTERED = "scattered";
 export type DrillSelection = { readonly [K in Exclude<ChoiceName, "floorHoleLayout">]?: OptionKey<K> } & Readonly<{ floorHoleLayout?: OptionKey<"floorHoleLayout"> | typeof SCATTERED }>;
 const CHOICES: { readonly [K in ChoiceName]: Readonly<{ default: OptionKey<K>; options: OptionsOf<K> }> } = OCELLUS_P4.choices;
@@ -1466,6 +1479,7 @@ function resolveChoices(lookup: (name: ChoiceName) => string | undefined, reject
     hoverMeleeReach: pick("hoverMeleeReach"),
     orbPickupRadius: pick("orbPickupRadius"),
     outerOrbTile: pick("outerOrbTile"),
+    rhythmMode: pick("rhythmMode"),
     focus: pick("focus"),
     drillStart: pick("drillStart"),
   };

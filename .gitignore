@@ -4,5 +4,6 @@ coverage/
 public/osrs-assets/
 .osrs-cache/
 .verify/
+.local-tools/
 *.log
 .DS_Store
