@@ -6,7 +6,7 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ryansgiblin/occ_rhythm_trainer.git"
+    "url": "git+https://github.com/rygiblin/occ_rhythm_trainer_deploy.git"
   },
   "engines": {
     "node": ">=22 <23"

@@ -35,7 +35,7 @@ test.each([
       { text: "@ShadowJdas", href: "https://x.com/ShadowJdas", ...LINK },
       { text: "Alessandro Rodi", href: "https://github.com/alessandrorodi", ...LINK },
     ],
-    source: [{ text: "Trainer source", href: "https://github.com/ryansgiblin/occ_rhythm_trainer", ...LINK }],
+    source: [{ text: "Trainer source", href: "https://github.com/rygiblin/occ_rhythm_trainer_deploy", ...LINK }],
     jagex: "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.",
     order,
   });

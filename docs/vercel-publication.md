@@ -1,6 +1,6 @@
 # Vercel publication
 
-This checkout publishes the rhythm-practice derivative to `ryansgiblin/occ_rhythm_trainer`. The original implementation and Git history are retained, with the original repository configured locally as `upstream`. The existing local preview and saved practice versions remain in their original checkout.
+This checkout publishes the rhythm-practice derivative to `rygiblin/occ_rhythm_trainer_deploy`. The original implementation and Git history are retained, with the original repository configured locally as `upstream`. The existing local preview and saved practice versions remain in their original checkout.
 
 ## Design and build contract
 

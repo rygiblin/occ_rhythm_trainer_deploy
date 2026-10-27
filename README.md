@@ -6,7 +6,7 @@ Free two-tick ranged and melee practice for the final phase of Ocellus in The Fr
 
 ## Deploy on Vercel
 
-1. In Vercel, choose **Add New → Project**, then import [`ryansgiblin/occ_rhythm_trainer`](https://github.com/ryansgiblin/occ_rhythm_trainer).
+1. In Vercel, choose **Add New → Project**, then import [`rygiblin/occ_rhythm_trainer_deploy`](https://github.com/rygiblin/occ_rhythm_trainer_deploy).
 2. Keep the repository root as the Root Directory and select **Other** for Framework Preset. Node.js must be **22.x**.
 3. Keep the commands supplied by `vercel.json`, then deploy. No environment variables or database are required.
 
