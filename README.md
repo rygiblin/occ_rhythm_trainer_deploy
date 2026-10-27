@@ -26,7 +26,11 @@ Double-click **Start teaching version.cmd**, or open `http://127.0.0.1:8002/?foc
 
 Ranged steps stay outside the central square; melee steps stay on its safe inner rim. Between sets, the lesson waits on clear floor while you follow the blue positioning cue to a nearby safe tile. It starts the full count-in when you are ready. Leaving safe floor during the count-in resets it. Active sets run at normal speed with the existing floor-damage, movement and attack-delay rules.
 
-The compact panel shows the current phase, beat and time remaining to the next tick. Click **Metronome: Off** to enable optional low STEP and high ATTACK tones. It starts off each time you open the lesson and stays silent while paused or positioning. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option. Earlier lesson snapshots are saved at tags `teaching-v1` and `teaching-v2`.
+The floor display replaces the millisecond bar. An amber TARGET preview counts toward your movement deadline; a red IMPACT border stays on the actual marked tile and counts toward the burst. Move on green STEP before the mark locks. If you are still on a locked tile, that hit is committed: follow the next STEP to recover.
+
+After a mistake, the coach guides the next safe step and attack while the set continues. Reaching safe floor alone does not confirm recovery. **Back in rhythm** appears after an actual successful dodge-and-attack pair without floor damage. Click **Metronome: Off** to enable optional low STEP and high ATTACK tones. It starts off each time you open the lesson and stays silent while paused or positioning.
+
+The compact panel keeps the current phase and beat visible. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option. Earlier lesson snapshots are saved at tags `teaching-v1`, `teaching-v2` and `teaching-v3`.
 
 ## Development
 

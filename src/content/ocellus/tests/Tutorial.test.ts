@@ -24,6 +24,105 @@ async function follow(drill: Drill, clean: number): Promise<void> {
 }
 
 describe("guided rhythm lesson", () => {
+  test("the preview follows the player until the actual mark locks its original tile", async () => {
+    const drill = startDrill({ selection: TEACHING });
+    drill.tickTo(3);
+    expect(status(drill).threat).toEqual({ kind: "none" });
+    drill.tickTo(4);
+    expect(status(drill).threat).toEqual({ kind: "preview", tile: RANGED.A, moveAt: 5, impactAt: 6 });
+    const markers = drill.region.entities.filter((entity) => entity.constructor.name === "TutorialTile");
+    expect(markers.map((marker) => marker.visible(0))).toEqual([false, true]);
+    await drill.click(RANGED.B);
+    drill.tickTo(5);
+    expect(status(drill).threat).toEqual({ kind: "locked", tile: RANGED.A, markedAt: 5, impactAt: 6, playerOnMark: false });
+    expect(drill.player().location).toEqual(RANGED.B);
+    expect(markers[1].visible(0)).toBe(false);
+    const danger = drill.region.entities.filter((entity) => entity.constructor.name === "TutorialThreatTile");
+    expect(danger.map((entity) => entity.location)).toEqual([RANGED.A]);
+    drill.tickTo(6);
+    expect(status(drill).threat).toEqual({ kind: "preview", tile: RANGED.B, moveAt: 7, impactAt: 8 });
+    expect(danger.map((entity) => entity.location)).toEqual([RANGED.B]);
+    drill.dispose();
+  });
+
+  test.each(["ranged", "melee"] as const)("%s recovers a missed step on the next real pair without restarting", async (mode) => {
+    const drill = startDrill({ selection: { ...TEACHING, rhythmMode: mode } });
+    drill.tickTo(5);
+    expect(status(drill).threat).toMatchObject({ kind: "locked", markedAt: 5, impactAt: 6, playerOnMark: true });
+    expect(drill.region.entities.filter((entity) => entity.constructor.name === "TutorialTile").map((marker) => marker.visible(0))).toEqual([false, false]);
+    drill.tickTo(6);
+    expect(status(drill)).toMatchObject({ feedback: "hit", recovery: { kind: "recovering", since: 6, cause: "hit" }, virtualTick: 6 });
+    const cue = status(drill).cue;
+    if (cue.kind !== "step") throw new Error("the next recovery step is unavailable");
+    await drill.click(cue.tile);
+    expect(status(drill).recovery.kind).toBe("recovering");
+    drill.tickTo(7);
+    expect(status(drill).recovery.kind).toBe("recovering");
+    await drill.click(UNDER_BOSS);
+    expect(status(drill).recovery.kind).toBe("recovering");
+    drill.tickTo(8);
+    expect(status(drill)).toMatchObject({ feedback: "clean-pair", clean: 1, recovery: { kind: "recovered", at: 8 }, virtualTick: 8, lesson: { kind: "practice" } });
+    await follow(drill, 2);
+    expect(status(drill).recovery).toEqual({ kind: "steady" });
+    expect(drill.rows().filter((row) => row.combatDraws > 0).map((row) => row.tick)).toEqual([8, 10]);
+    drill.dispose();
+  });
+
+  test.each([
+    { destination: RANGED.B, cause: "dodge-without-attack" },
+    { destination: tile(7, 2), cause: "moved-too-far" },
+  ] as const)("$cause recovers through the next dynamic step and attack", async ({ destination, cause }) => {
+    const drill = startDrill({ selection: TEACHING });
+    drill.tickTo(4);
+    await drill.click(destination);
+    drill.tickTo(6);
+    expect(status(drill).recovery).toEqual({ kind: "recovering", since: 6, cause });
+    const cue = status(drill).cue;
+    if (cue.kind !== "step") throw new Error("no adjacent recovery step");
+    expect(Math.max(Math.abs(cue.tile.x - destination.x), Math.abs(cue.tile.y - destination.y))).toBe(1);
+    await drill.click(cue.tile);
+    drill.tickTo(7);
+    await drill.click(UNDER_BOSS);
+    drill.tickTo(8);
+    expect(status(drill)).toMatchObject({ feedback: "clean-pair", recovery: { kind: "recovered", at: 8 } });
+    drill.dispose();
+  });
+
+  test("floor damage overrides a clean dodge, and safe positioning alone does not confirm recovery", async () => {
+    const drill = startDrill({ selection: TEACHING });
+    drill.tickTo(6);
+    await drill.click(MELEE.A);
+    drill.tickTo(8);
+    expect(status(drill)).toMatchObject({ safeFloor: false, cue: { kind: "return-to-pair" }, recovery: { kind: "recovering", cause: "floor" }, threat: { kind: "preview", tile: MELEE.A, moveAt: 9 } });
+    await drill.click(MELEE.B);
+    drill.tickTo(9);
+    await drill.click(UNDER_BOSS);
+    drill.tickTo(10);
+    expect(drill.row(10).events.some((event) => event.kind === "floor-hit")).toBe(true);
+    expect(status(drill)).toMatchObject({ feedback: "clean-pair", safeFloor: false, recovery: { kind: "recovering", cause: "floor" } });
+    const position = status(drill).cue;
+    if (position.kind !== "return-to-pair") throw new Error("no safe recovery position");
+    await drill.click(position.tile);
+    drill.tickTo(11);
+    expect(status(drill)).toMatchObject({ safeFloor: true, recovery: { kind: "recovering", cause: "floor" }, virtualTick: 11 });
+    await drill.click(UNDER_BOSS);
+    drill.tickTo(12);
+    expect(status(drill)).toMatchObject({ feedback: "clean-pair", recovery: { kind: "recovered", at: 12 } });
+    drill.dispose();
+  });
+
+  test("restart clears the committed threat and recovery without accumulating overlays", () => {
+    const drill = startDrill({ selection: TEACHING });
+    drill.tickTo(6);
+    expect(status(drill).recovery.kind).toBe("recovering");
+    drill.tickTo(7);
+    expect(status(drill).threat.kind).toBe("locked");
+    drill.restart();
+    expect(status(drill)).toMatchObject({ recovery: { kind: "steady" }, threat: { kind: "none" }, virtualTick: 0 });
+    expect(drill.region.entities.filter((entity) => entity.constructor.name === "TutorialThreatTile")).toHaveLength(1);
+    drill.dispose();
+  });
+
   test("the first safe count-in retains next-tick step and attack timing", async () => {
     const drill = startDrill({ selection: TEACHING });
     drill.tickTo(0);
@@ -182,11 +281,14 @@ describe("guided rhythm lesson", () => {
     expect(drill.events("floor-hit")).toEqual([]);
     expect(drill.region.tutorialStatus()).toBeNull();
     expect(drill.region.entities.filter((entity) => entity.constructor.name === "TutorialTile")).toEqual([]);
+    expect(drill.region.entities.filter((entity) => entity.constructor.name === "TutorialThreatTile")).toEqual([]);
     drill.dispose();
   });
   test("the introduction explains readiness and offers a mode control without duplicate banner", () => {
     const lesson = loadPage("/?focus=rhythm-loop&tutorial=on&seed=1");
     expect(lesson.element("tutorial_intro").textContent).toContain("The lesson waits");
+    expect(lesson.element("tutorial_intro").textContent).toContain("movement deadline");
+    expect(lesson.element("tutorial_intro").textContent).toContain("red IMPACT");
     expect(lesson.element("rhythm_mode").textContent).toContain("Alternating 15");
     expect(() => lesson.element("rhythm_banner")).toThrow("the page has no #rhythm_banner");
     lesson.close();

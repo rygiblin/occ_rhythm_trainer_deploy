@@ -4,7 +4,21 @@ The saved original remains at tag `practice-v1-15-beats` and commit `1bd3ffcae0e
 
 The teaching version is on `codex/rhythm-tutorial`, selected with `tutorial=on` on the development preview. It adds dynamic safe-floor guidance and enables the existing floor-damage rule for this lesson. Original movement, cooldown, explosion and invincibility rules are reused. The saved practice version remains unchanged.
 
-## Teaching v3: current verification
+## Teaching v4: current verification
+
+The spatial threat display and recovery coach pass all 84 focused tutorial, rhythm, mode, floor, explosion, attack-speed, invincibility and release tests. The final label correction also passes all 27 tutorial tests. TypeScript and type discipline report zero findings. The production build, cache-header validation and phase-code check pass.
+
+Public behavior tests establish the exact recovery sequence in both styles: miss the mark-tick move at 5, take the hit at 6, move on 7, attack on 8, and confirm recovered only after tick 8 resolves. The following clean pair returns to steady. Missed attacks and moves that went too far recover through the next dynamically selected pair. Floor damage overrides an otherwise clean pair, and safe positioning alone cannot confirm recovery.
+
+The browser driver earns thirty ordinary clean pairs across ranged and melee, then deliberately misses an attack, misses a step and moves too far. It verifies the committed-hit warning, recovers with a real clean pair, and earns a second pair to return to steady: 32 clean pairs total. No floor-hit events occur on this guided path; the deliberate missed explosion step does apply its normal damage. Existing readiness waits, full count-ins, optional metronome, pause and leaving the tutorial remain covered.
+
+Before each mark, the public preview points to the player's actual tile and exposes the movement deadline separately from impact time. After the move, the locked threat remains on the original marked tile until resolution. Native screenshots capture the amber preview, red locked border, and a later fraction of the same committed impact. The numeric bar is absent. STEP is hidden during the locked interval; HERE is also hidden when the player remains on the dangerous tile. That last overlap was found in independent review and corrected before saving this version.
+
+Current evidence is `.verify/local-rhythm/tutorial-v4/`, including `verdict.json`, public state snapshots, the actual fight trace and JPEG screenshots. Run `scripts/verify-tutorial-browser.mjs` with the project-local Node runtime to reproduce it. The driver uses real browser mouse events and observes public state, canvas labels and oscillator starts; it does not drive the simulation through internal APIs. The implementation follows [Teaching v4](teaching-v4-design.md).
+
+The Windows harness limitations below still apply; the full repository suite is not claimed green.
+
+## Teaching v3: historical verification
 
 The approved readiness, pulse, metronome, marker and compact-display changes pass all 77 focused tutorial, rhythm, mode, floor, explosion, attack-speed, invincibility and release tests. TypeScript and type discipline report zero findings. The production build, cache-header validation and phase-code check pass. Independent source review found no actionable issues.
 

@@ -17,7 +17,15 @@ export type TutorialCue =
   | Readonly<{ kind: "attack"; style: Style; beat: number }>
   | Readonly<{ kind: "return-to-pair"; style: Style; target: "A"; tile: Tile }>;
 export type TutorialFeedback = "clean-pair" | "dodge-without-attack" | "hit" | "moved-too-far";
-export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; safeFloor: boolean; lesson: TeachingLesson; virtualTick: Tick; tickProgress: number; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
+export type TutorialThreat =
+  | Readonly<{ kind: "none" }>
+  | Readonly<{ kind: "preview"; tile: Tile; moveAt: Tick; impactAt: Tick }>
+  | Readonly<{ kind: "locked"; tile: Tile; markedAt: Tick; impactAt: Tick; playerOnMark: boolean }>;
+export type TutorialRecovery =
+  | Readonly<{ kind: "steady" }>
+  | Readonly<{ kind: "recovering"; since: Tick; cause: Exclude<TutorialFeedback, "clean-pair"> | "floor" }>
+  | Readonly<{ kind: "recovered"; at: Tick }>;
+export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; threat: TutorialThreat; recovery: TutorialRecovery; safeFloor: boolean; lesson: TeachingLesson; virtualTick: Tick; tickProgress: number; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
 export type TutorialGuide = Readonly<{ cue: TutorialCue; tiles: TeachingPair }>;
 
 export const sameTile = (left: Tile, right: Tile): boolean => left.x === right.x && left.y === right.y;
@@ -68,4 +76,13 @@ export function tutorialFeedback(row: TickRow): TutorialFeedback | null {
       return unhandled;
     }
   }
+}
+
+export function tutorialRecovery(previous: TutorialRecovery, row: TickRow, safeFloor: boolean): TutorialRecovery {
+  const feedback = tutorialFeedback(row);
+  const cause = row.events.some((event) => event.kind === "floor-hit") || (feedback === "clean-pair" && !safeFloor)
+    ? "floor" : feedback === "clean-pair" ? null : feedback;
+  if (cause !== null) return { kind: "recovering", since: previous.kind === "recovering" ? previous.since : row.tick, cause };
+  if (feedback !== "clean-pair") return previous;
+  return previous.kind === "recovering" ? { kind: "recovered", at: row.tick } : { kind: "steady" };
 }

@@ -14,12 +14,12 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26.4",
+  version: "2026.10.26.5",
   date: "2026-10-26",
   notes: [
-    "Guided sets wait on clear floor until you are safely positioned, then count into fifteen attacks at normal speed.",
-    "A smaller teaching panel shows the current phase, beat and tick countdown, with an optional metronome.",
-    "Positioning shows only the blue target, keeping inactive step labels out of the way.",
+    "Teaching mode shows the next target and locked impact directly on the floor instead of a millisecond bar.",
+    "Recovery cues guide the next safe step and attack after a mistake, and confirm recovery from actual successful pairs.",
+    "Inactive step markers disappear during impact so they cannot point back onto the dangerous tile.",
   ],
 };
 

@@ -2,6 +2,14 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.5",
+    notes: [
+      "Teaching mode shows the next target and locked impact directly on the floor instead of a millisecond bar.",
+      "Recovery cues guide the next safe step and attack after a mistake, and confirm recovery from actual successful pairs.",
+      "Inactive step markers disappear during impact so they cannot point back onto the dangerous tile.",
+    ],
+  },
+  {
     version: "2026.10.26.4",
     notes: [
       "Guided sets wait on clear floor until you are safely positioned, then count into fifteen attacks at normal speed.",

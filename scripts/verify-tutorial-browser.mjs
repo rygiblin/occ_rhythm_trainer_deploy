@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const browser = resolve(root, ".local-tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe");
-const evidence = resolve(root, ".verify/local-rhythm/tutorial-v3");
+const evidence = resolve(root, ".verify/local-rhythm/tutorial-v4");
 mkdirSync(evidence, { recursive: true });
 
 function command(...args) {
@@ -115,19 +115,30 @@ async function reposition(style, hold) {
 
 async function cleanPair(before, name) {
   assert.equal(before.tutorial.cue.kind, "step");
+  assert.equal(before.tutorial.threat.kind, "preview");
+  assert.deepEqual(before.tutorial.threat.tile, before.player);
+  assert.equal(before.tutorial.threat.moveAt, before.tutorial.tick + 1);
+  assert.equal(before.tutorial.threat.impactAt, before.tutorial.tick + 2);
   assertSafePair(before);
   await capture(`${name}-step`, before);
   await clickTile(before.tutorial.cue.tile);
   const marked = await tickTo(before.tutorial.tick + 1);
   assert.equal(marked.tutorial.tick, before.tutorial.tick + 1);
   assert.equal(marked.tutorial.cue.kind, "attack");
+  assert.equal(marked.tutorial.threat.kind, "locked");
+  assert.deepEqual(marked.tutorial.threat.tile, before.player, "The locked danger must stay on the actual marked tile");
+  assert.equal(marked.tutorial.threat.playerOnMark, false);
+  assert.equal(marked.tutorial.threat.markedAt, marked.tutorial.tick);
+  assert.equal(marked.tutorial.threat.impactAt, marked.tutorial.tick + 1);
   assertSafePair(marked);
   await capture(`${name}-attack`, marked);
+  assert.deepEqual(read(`window.__teachingPaint.labels.filter(label => label.tick === ${marked.tutorial.tick} && label.text === 'STEP')`), []);
   const point = read("window.__teachingPaint.attack");
   assert.equal(point?.tick, marked.tutorial.tick);
   await clickPoint(point);
   const impact = await tickTo(marked.tutorial.tick + 1);
   assert.equal(impact.tutorial.feedback, "clean-pair");
+  assert.notEqual(impact.tutorial.threat.kind, "locked");
   assertSafePair(impact);
   return impact;
 }
@@ -150,11 +161,12 @@ try {
     window.__teachingAudio = [];
     const fill = OffscreenCanvasRenderingContext2D.prototype.fillText;
     OffscreenCanvasRenderingContext2D.prototype.fillText = function(text, x, y, ...rest) {
+      if (!['▼ ATTACK', 'HERE', 'STEP', 'POSITION', 'TARGET', 'IMPACT'].includes(text)) return fill.call(this, text, x, y, ...rest);
       const matrix = this.getTransform();
       const point = matrix.transformPoint({x, y});
       const tick = window.__archiveOcellusProbe?.snapshot().tutorial?.tick;
       if (text === '▼ ATTACK') window.__teachingPaint.attack = { x: point.x, y: point.y, tick };
-      if (['HERE', 'STEP', 'POSITION'].includes(text)) window.__teachingPaint.labels.push({ text, tick });
+      if (['HERE', 'STEP', 'POSITION', 'TARGET', 'IMPACT'].includes(text)) window.__teachingPaint.labels.push({ text, tick });
       return fill.call(this, text, x, y, ...rest);
     };
     const create = AudioContext.prototype.createOscillator;
@@ -172,6 +184,7 @@ try {
   command("click", "#tutorial_start");
   await tickTo(0);
   command("click", "#tutorial_pause");
+  assert.equal(read("document.querySelector('#tutorial_pulse')"), null);
   const paused = state();
   assert.equal(paused.ticking, false);
   await sleep(1100);
@@ -196,6 +209,7 @@ try {
   const completed = state();
   assert.equal(completed.tutorial.clean, 30);
   assert.equal(completed.tutorial.attempts, 30);
+  assert.equal(completed.tutorial.recovery.kind, "steady");
   await capture("thirty-clean-pairs");
   const log = read("window.__archiveOcellusProbe.log()");
   writeFileSync(resolve(evidence, "safe-floor-fight-log.json"), JSON.stringify(log, null, 2));
@@ -214,9 +228,24 @@ try {
   await clickTile(next.tutorial.cue.tile);
   await tickTo(next.tutorial.tick + 2);
   assert.equal(state().tutorial.feedback, "dodge-without-attack");
+  assert.equal(state().tutorial.recovery.kind, "recovering");
   await capture("missed-attack-feedback");
+  const committed = await tickTo(next.tutorial.tick + 3);
+  assert.equal(committed.tutorial.threat.kind, "locked");
+  assert.equal(committed.tutorial.threat.playerOnMark, true);
+  assert.deepEqual(committed.tutorial.threat.tile, committed.player);
+  await capture("committed-hit", committed);
+  assert.deepEqual(read(`window.__teachingPaint.labels.filter(label => label.tick === ${committed.tutorial.tick} && ['HERE', 'STEP'].includes(label.text))`), []);
+  assert.ok(read("document.body.innerText.includes('Too late for this hit')"));
+  const nearImpact = await waitFor((snapshot) => {
+    assert.equal(snapshot.tutorial.tick, committed.tutorial.tick);
+    return snapshot.tutorial.tickProgress >= 0.65;
+  }, "locked ring approaching impact");
+  assert.deepEqual(nearImpact.tutorial.threat.tile, committed.tutorial.threat.tile);
+  await capture("committed-hit-near-impact", nearImpact);
   await tickTo(next.tutorial.tick + 4);
   assert.equal(state().tutorial.feedback, "hit");
+  assert.equal(state().tutorial.recovery.kind, "recovering");
   await capture("late-step-feedback");
   const stationary = state().player;
   await clickTile({ x: stationary.x + 2, y: stationary.y });
@@ -227,9 +256,12 @@ try {
   assert.equal(Math.max(Math.abs(moved.tutorial.cue.tile.x - moved.player.x), Math.abs(moved.tutorial.cue.tile.y - moved.player.y)), 1);
   assertSafePair(moved);
   await capture("dynamic-step-after-moving-away");
-  await cleanPair(moved, "dynamic");
+  const recovered = await cleanPair(moved, "dynamic");
+  assert.equal(recovered.tutorial.recovery.kind, "recovered");
   assert.deepEqual(read("window.__archiveOcellusProbe.log().rows.flatMap(row => row.events).filter(event => event.kind === 'floor-hit')"), []);
   await capture("dynamic-clean-pair");
+  const steady = await cleanPair(recovered, "steady");
+  assert.equal(steady.tutorial.recovery.kind, "steady");
   command("click", "#tutorial_pause");
   await capture("final-paused");
   const pausedAudio = read("window.__teachingAudio.length");
@@ -243,8 +275,8 @@ try {
   await capture("ordinary-practice-restored");
   const errors = command("errors");
   assert.deepEqual(errors.errors ?? [], []);
-  writeFileSync(resolve(evidence, "verdict.json"), JSON.stringify({ passed: true, cleanPairs: 31, floorHits: 0, heldPositioningTicks: [10, 5], fullCountInAfterPositioning: true, inactiveStepHidden: true, fractionalPulse: true, metronomeTones: audio.length, distinctTones: true, noDuplicateTones: true, dynamicStepAfterManualMove: true, clickedActualBossLabel: true, feedback: ["clean-pair", "dodge-without-attack", "hit", "moved-too-far"], introWaits: true, pauseFreezesTick: true, ordinaryPracticeRestored: true, errors }, null, 2));
-  console.log("PASS teaching v3: 31 clean pairs, no floor hits, safe readiness waits and full count-ins, clear markers, fractional pulse, real metronome tones, pause and ordinary practice restored.");
+  writeFileSync(resolve(evidence, "verdict.json"), JSON.stringify({ passed: true, cleanPairs: 32, floorHits: 0, movementDeadlinePreview: true, fixedActualThreat: true, committedHitWarning: true, recoveryConfirmedByCleanPair: true, steadyAfterSecondCleanPair: true, numericBarRemoved: true, heldPositioningTicks: [10, 5], fullCountInAfterPositioning: true, inactiveStepHidden: true, nativeCountdownClock: true, metronomeTones: audio.length, distinctTones: true, noDuplicateTones: true, dynamicStepAfterManualMove: true, clickedActualBossLabel: true, feedback: ["clean-pair", "dodge-without-attack", "hit", "moved-too-far"], introWaits: true, pauseFreezesTick: true, ordinaryPracticeRestored: true, errors }, null, 2));
+  console.log("PASS teaching v4: 32 clean pairs, no floor hits, actual locked threats and movement previews, live recovery after errors, clear markers, metronome, readiness, pause and ordinary practice restored.");
 } catch (error) {
   writeFileSync(resolve(evidence, "failure-log.json"), JSON.stringify(read("window.__archiveOcellusProbe.log()"), null, 2));
   if (input) await capture("failure");

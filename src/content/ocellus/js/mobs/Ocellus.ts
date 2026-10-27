@@ -40,8 +40,8 @@ import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
 import { rhythmSectionAt } from "../p4/rhythm";
-import type { TutorialCue, TutorialGuide } from "../p4/tutorial";
-import { tutorialGuide } from "../p4/tutorial";
+import type { TutorialCue, TutorialGuide, TutorialThreat } from "../p4/tutorial";
+import { sameTile, tutorialGuide } from "../p4/tutorial";
 import { TeachingTimeline } from "../p4/TeachingTimeline";
 import { equipSetup } from "../OcellusLoadout";
 import { VoidRift } from "./VoidRift";
@@ -218,6 +218,18 @@ export class Ocellus extends Mob {
 
   teachingCue(): TutorialCue | null {
     return this.teachingGuide()?.cue ?? null;
+  }
+
+  teachingThreat(): TutorialThreat {
+    const run = this.runState();
+    if (!this.teaching || run.kind !== "running") return { kind: "none" };
+    const player = this.target.observe().tile;
+    const pending = this.marks[0];
+    if (pending) return { kind: "locked", tile: pending.tile, markedAt: pending.markedAt, impactAt: after(pending.markedAt, OCELLUS_P4.rhythm.value.impactAfterMark), playerOnMark: sameTile(player, pending.tile) };
+    if (this.teaching.lesson().kind === "count-in" && this.teachingCue()?.kind === "return-to-pair") return { kind: "none" };
+    const moveAt = tick(run.tick + 1);
+    if (!this.momentAt(moveAt).beats.some((beat) => beat.kind === "explosion-mark")) return { kind: "none" };
+    return { kind: "preview", tile: player, moveAt, impactAt: after(moveAt, OCELLUS_P4.rhythm.value.impactAfterMark) };
   }
 
   override drawUILayer(tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, scale: number): void {

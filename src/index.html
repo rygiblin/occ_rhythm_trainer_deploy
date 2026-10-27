@@ -111,10 +111,10 @@
       .tutorial_beat span:first-child[data-active="true"] { border-color: #4ee6a1; color: #4ee6a1; }
       .tutorial_beat span:last-child[data-active="true"] { border-color: #ffd36b; color: #ffd36b; }
       .tutorial_controls { display: flex; flex-wrap: wrap; gap: 6px; }
-      #tutorial_pulse { position: relative; height: 22px; overflow: hidden; border: 1px solid #44505a; background: #141b1d; }
-      #tutorial_pulse > div { height: 100%; background: #3e6756; }
-      #tutorial_pulse > span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: #effff5; }
-      #tutorial_pulse[data-running="false"] > div { background: #44505a; }
+      #tutorial_recovery { color: #aebcc6; font-weight: bold; }
+      #tutorial_recovery[data-recovery="warning"] { color: #ff7b82; }
+      #tutorial_recovery[data-recovery="recovering"] { color: #ffd36b; }
+      #tutorial_recovery[data-recovery="recovered"] { color: #4ee6a1; }
       #tutorial_intro button, #tutorial_panel button {
         padding: 8px 12px;
         border: 1px solid #aebcc6;

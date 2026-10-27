@@ -1,12 +1,12 @@
 import { TileMarker } from "osrs-sdk";
 import type { Region, UILayerProjector } from "osrs-sdk";
 import { OCELLUS_P4 } from "../OcellusTimings";
-import type { TeachingPair, TeachingTile, TutorialCue } from "../p4/tutorial";
+import type { TeachingPair, TeachingTile, TutorialCue, TutorialThreat } from "../p4/tutorial";
 
 const LOOK = OCELLUS_P4.teaching.value;
 
 export class TutorialTile extends TileMarker {
-  constructor(region: Region, private readonly label: TeachingTile, tiles: TeachingPair, private readonly guide: () => TutorialCue | null) {
+  constructor(region: Region, private readonly label: TeachingTile, tiles: TeachingPair, private readonly guide: () => TutorialCue | null, private readonly threat: () => TutorialThreat) {
     super(region, { ...tiles[label] }, LOOK.colours.idle, 1, false);
   }
 
@@ -23,7 +23,11 @@ export class TutorialTile extends TileMarker {
   }
 
   override visible(tickPercent: number): boolean {
-    return super.visible(tickPercent) && !(this.label === "B" && this.guide()?.kind === "return-to-pair");
+    if (!super.visible(tickPercent)) return false;
+    const cue = this.guide();
+    if (this.label === "B") return cue?.kind === "step";
+    const threat = this.threat();
+    return threat.kind === "none" || this.location.x !== threat.tile.x || this.location.y !== threat.tile.y || cue?.kind === "return-to-pair";
   }
 
   override drawUILayer(_tickPercent: number, projector: UILayerProjector, context: OffscreenCanvasRenderingContext2D, _scale: number): void {

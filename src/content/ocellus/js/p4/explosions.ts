@@ -9,7 +9,7 @@ import { reach } from "../../../../sim/tiles";
 import { FOOTPRINT } from "./floor";
 import { rollInt } from "../roll";
 
-type Mark = Readonly<{ void: VoidKind; pulse: number; tile: Tile }>;
+type Mark = Readonly<{ void: VoidKind; pulse: number; tile: Tile; markedAt: Tick }>;
 type Impact = Extract<PlayerHit, { kind: "explosion-resolved" }>;
 
 export type Marks = readonly Mark[];
@@ -43,7 +43,7 @@ export function explode(rules: ExplosionRules, marks: Marks, beat: ExplosionBeat
       return { marks, outputs: [{ kind: "event", event: { kind: "explosion-series-started", at, void: beat.void } }] };
     case "explosion-mark":
       return {
-        marks: [...marks, { void: beat.void, pulse: beat.pulse, tile: player.tile }],
+        marks: [...marks, { void: beat.void, pulse: beat.pulse, tile: player.tile, markedAt: at }],
         outputs: [{ kind: "event", event: { kind: "explosion-marked", at, void: beat.void, pulse: beat.pulse, tile: player.tile } }],
       };
     case "explosion-impact":

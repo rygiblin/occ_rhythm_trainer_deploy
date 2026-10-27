@@ -632,6 +632,35 @@ function teachingInstruction(cue: TeachingStatus["cue"]): string {
   }
 }
 
+function teachingHint(status: TeachingStatus): string {
+  if (!status.safeFloor) return "Safe floor first. Click blue POSITION, then follow the next STEP.";
+  if (status.threat.kind === "locked" && status.threat.playerOnMark) return "Too late for this hit—follow the next STEP. The red tile is already locked.";
+  switch (status.cue.kind) {
+    case "step": return "Click the green neighboring tile before the amber TARGET border runs out.";
+    case "attack": return "Click the gold label on Ocellus. The red IMPACT tile is fixed until the burst.";
+    case "return-to-pair": return `Click blue POSITION for ${status.lesson.style}: ${status.lesson.style === "ranged" ? "outside the central square" : "on the inner rim"}.`;
+    case "prepare": return "Wait for TARGET, then STEP. The lesson counts in after safe positioning.";
+    default: {
+      const unhandled: never = status.cue;
+      return unhandled;
+    }
+  }
+}
+
+function recoveryInstruction(status: TeachingStatus): string {
+  if (!status.safeFloor) return "RECOVER · SAFE FLOOR FIRST";
+  if (status.threat.kind === "locked" && status.threat.playerOnMark) return "HIT COMMITTED · PREPARE THE NEXT STEP";
+  switch (status.recovery.kind) {
+    case "recovered": return "Back in rhythm · successful dodge and attack";
+    case "steady": return status.threat.kind === "preview" ? "Amber = move deadline · Red = impact" : "One safe step, then one attack.";
+    case "recovering": return status.cue.kind === "return-to-pair" ? "RECOVER · SAFE POSITION FIRST" : status.cue.kind === "step" ? "RECOVER · STEP ONE TILE NOW" : status.cue.kind === "attack" ? "RECOVER · ATTACK NOW" : "RECOVER · FOLLOW THE NEXT STEP";
+    default: {
+      const unhandled: never = status.recovery;
+      return unhandled;
+    }
+  }
+}
+
 function metronomeClick(action: "step" | "attack"): void {
   const context = SoundCache.context;
   if (!context || context.state !== "running") return;
@@ -689,9 +718,6 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
   const stage = status?.lesson;
   const style = stage?.style === "melee" ? "Melee" : "Ranged";
   const progress = stage?.kind === "practice" ? `${style} · Beat ${stage.beat} / ${stage.count}` : stage?.kind === "count-in" ? `${style} · Starts in ${stage.remaining}` : `${style} · Positioning · Floor clear`;
-  const ticking = lesson === "running" && !trainer.world.isPaused;
-  const fraction = Math.max(0, Math.min(1, status?.tickProgress ?? 0));
-  const milliseconds = Math.max(0, Math.ceil((1 - fraction) * Settings.tickMs));
   return (
     <>
       {lesson === "intro" && (
@@ -706,7 +732,8 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
               <li>Repeat from wherever you stand safely. One click per tick: step, attack, step, attack.</li>
               <li><b className="tutorial_position_colour">Blue POSITION:</b> move to safe floor. The lesson waits, then counts into the next set.</li>
             </ol>
-            <p>Follow the tick pulse to anticipate each click. The optional metronome uses a low tone for STEP and a high tone for ATTACK. Active sets use normal game speed.</p>
+            <p>The amber TARGET border drains to your movement deadline. After the tile locks, its red IMPACT border drains to the burst; that countdown is already too late to escape from the marked tile.</p>
+            <p>After a mistake, follow the next safe STEP, then ATTACK. A real successful pair confirms you are back in rhythm. The optional metronome uses low STEP and high ATTACK tones.</p>
             <RhythmModeButton mode={mode} />
             <button id="tutorial_start" type="button" disabled={!ready} onClick={start}>{ready ? "Start guided practice" : "Loading practice…"}</button>
           </section>
@@ -718,11 +745,8 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
           <RhythmModeButton mode={mode} />
           <strong id="tutorial_cue">{lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
           <p id="tutorial_progress">{progress}</p>
-          <div id="tutorial_pulse" role="progressbar" aria-label="Time through current tick" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)} data-running={ticking}>
-            <div style={{ width: `${fraction * 100}%` }} />
-            <span>{ticking ? `${milliseconds} ms to next tick` : "Tick paused"}</span>
-          </div>
-          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : cue?.kind === "step" ? "Click the green neighboring tile now." : cue?.kind === "attack" ? "Click the gold label on Ocellus's body now." : cue?.kind === "return-to-pair" ? `Click blue POSITION for ${style.toLowerCase()}: ${style === "Ranged" ? "outside the central square" : "on the inner rim"}.` : "Wait for the next cue. Blue repositions you; green starts the rhythm."}</p>
+          <p id="tutorial_recovery" data-recovery={lesson === "paused" ? "paused" : status?.safeFloor === false || (status?.threat.kind === "locked" && status.threat.playerOnMark) ? "warning" : status?.recovery.kind}>{lesson === "paused" ? "Cues paused" : status ? recoveryInstruction(status) : "Follow the next step."}</p>
+          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : status ? teachingHint(status) : "Wait for the next cue."}</p>
           <div className="tutorial_beat"><span data-active={lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
           <p id="tutorial_feedback">{status?.safeFloor === false ? "You are on the damaging void floor. Move to blue POSITION." : status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
           <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>
