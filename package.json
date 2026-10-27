@@ -1,12 +1,12 @@
 {
-  "name": "archive-ocellus-trainer",
+  "name": "occ-rhythm-trainer",
   "version": "0.0.1",
   "private": true,
-  "description": "A free practice simulator for phase 4 of the Ocellus fight in The Fractured Archive.",
+  "description": "Free two-tick ranged and melee rhythm practice for Ocellus, with guided Unlimited and Survival modes.",
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Julian-Dasilva/ArchiveOcellusTrainer.git"
+    "url": "git+https://github.com/ryansgiblin/occ_rhythm_trainer.git"
   },
   "engines": {
     "node": ">=22 <23"

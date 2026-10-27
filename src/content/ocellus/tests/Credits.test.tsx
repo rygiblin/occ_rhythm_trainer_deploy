@@ -5,8 +5,8 @@ afterEach(() => vi.unstubAllEnvs());
 
 const LINK = { target: "_blank", rel: "noopener noreferrer" };
 
-const WITH_COMING_SOON = { order: ["coming_soon", "maker_credit", "credit_line", "app_version"], comingSoon: "Phases 1 to 3 coming soon." };
-const WITHOUT_COMING_SOON = { order: ["maker_credit", "credit_line", "app_version"], comingSoon: null };
+const WITH_COMING_SOON = { order: ["coming_soon", "maker_credit", "trainer_source", "credit_line", "app_version"], comingSoon: "Phases 1 to 3 coming soon." };
+const WITHOUT_COMING_SOON = { order: ["maker_credit", "trainer_source", "credit_line", "app_version"], comingSoon: null };
 
 test.each([
   { p2: "off", p3: "off", ...WITH_COMING_SOON },
@@ -21,6 +21,7 @@ test.each([
     comingSoon: document.getElementById("coming_soon")?.textContent ?? null,
     maker: maker.textContent,
     links: [...maker.querySelectorAll("a")].map((link) => ({ text: link.textContent, href: link.href, target: link.target, rel: link.rel })),
+    source: [...page.element("trainer_source").querySelectorAll("a")].map((link) => ({ text: link.textContent, href: link.href, target: link.target, rel: link.rel })),
     jagex: page.element("credit_line").textContent,
     order: [...page.element("credits").children].map((child) => child.id),
   };
@@ -34,6 +35,7 @@ test.each([
       { text: "@ShadowJdas", href: "https://x.com/ShadowJdas", ...LINK },
       { text: "Alessandro Rodi", href: "https://github.com/alessandrorodi", ...LINK },
     ],
+    source: [{ text: "Trainer source", href: "https://github.com/ryansgiblin/occ_rhythm_trainer", ...LINK }],
     jagex: "Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.",
     order,
   });

@@ -1,78 +1,96 @@
-# Archive Ocellus Trainer
+# Ocellus Rhythm Trainer
 
-A free practice simulator for phase 4 of the Ocellus fight in The Fractured Archive.
+Free two-tick ranged and melee practice for the final phase of Ocellus in The Fractured Archive. This is a rhythm-focused derivative of [ArchiveOcellusTrainer](https://github.com/Julian-Dasilva/ArchiveOcellusTrainer), with guided tile markers, recovery feedback, Unlimited practice and Survival attempts.
 
-**Status: early development.** Mechanics come from the community wiki and release-day reports. Timings are unverified and will change.
+**Mechanics and timings are unverified approximations.** Use this to practise movement and attack rhythm.
 
-Play it at https://archive-ocellus-trainer.raid-sims.workers.dev. Add `?invincible=on` to the link to practise without dying, or open **Settings** in the game and tick **Invincible**. Pick a single mechanic to drill from **Focus** in the same menu. Hold Control while clicking a tile to walk there instead of running, as in game.
+## Deploy on Vercel
 
-Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the layout of [ColosseumTrainer](https://github.com/Supalosa/ColosseumTrainer).
+1. In Vercel, choose **Add New → Project**, then import [`ryansgiblin/occ_rhythm_trainer`](https://github.com/ryansgiblin/occ_rhythm_trainer).
+2. Keep the repository root as the Root Directory and select **Other** for Framework Preset. Node.js must be **22.x**.
+3. Keep the commands supplied by `vercel.json`, then deploy. No environment variables or database are required.
 
-## Local rhythm practice
+| Setting | Value |
+| --- | --- |
+| Install Command | `npm ci --no-audit --no-fund && bash scripts/install-beta-sdk.sh` |
+| Build Command | `npm run practice:assets && npm run typecheck && npm run build` |
+| Output Directory | `dist` |
 
-The version before the teaching aid is saved at Git tag `practice-v1-15-beats` on branch `codex/rhythm-practice`. A frozen playable copy is in the workspace's `saved-versions/rhythm-practice-v1/` folder. Open **Open saved practice v1.cmd** in the workspace to run that copy on port 8004.
+Share the resulting Vercel URL. Opening it without query parameters starts the guided **Unlimited / Ranged** introduction. Change **Session** and **Style** in the trainer; the URL records the selected mode so it can be shared. Later pushes to `main` deploy automatically once the Vercel Git integration is connected.
 
-Use the **Mode** button in the practice banner to cycle between **Alternating 15**, **Ranged only**, and **Melee only**. Changing mode restarts the drill. Each set has fifteen beats and the same short preparation window. **Restart** keeps your selected mode.
+This is a static browser application. Vercel hosts the built files; there is no gameplay backend and no Supabase requirement. Survival bests are saved separately for ranged and melee in each browser.
 
-Double-click **Start rhythm practice.cmd** on Windows. It starts the local trainer and opens `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on`. The trainer alternates fifteen ranged explosion beats and fifteen melee beats, with a three-second preparation window before each set. The floor and gear change automatically. Mistakes do not end practice, and the boss cannot die.
+## Practice
 
-Click an adjacent tile to step one tile as the explosion marks, then click Ocellus to attack. Repeat every two ticks. Movement and attacks remain manual. A two-tile move avoids damage but does not earn the attack-speed bonus. The floor is visual in this mode, so you can stay beside the boss for both weapons. The purple explosion draws 35% smaller while its marked tile and timing remain unchanged.
+Read the introduction and click **Start guided practice**. Follow the blue positioning marker to safe floor, then the green **STEP** tile and gold **ATTACK** cue on Ocellus. Movement and attacks remain manual. Step exactly one tile to earn the attack-speed bonus; moving two tiles can avoid damage but does not earn that bonus. Hold Control while clicking to walk.
 
-For a fresh Windows checkout, run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local.ps1` once. This installs a project-local Node 22 runtime, the locked dependencies, the pinned SDK, and the public trainer's cache-2746 runtime assets. Git for Windows and npm must already be installed. Generated assets and the local runtime stay ignored. The asset checker fails if the public deployment no longer matches this checkout. The original cache-extraction workflow below remains available.
+- **Unlimited:** one selected style continues without set breaks. Mistakes do not end the session.
+- **Survival:** the same continuous rhythm, ending on the first impact-tile hit. Retry keeps your style and best completed time. The timer excludes positioning, count-in and pauses.
+- **15-hit sets:** alternate fifteen ranged and fifteen melee beats, or keep a single style, with a preparation window between sets.
 
-## Teaching version
+The amber **TARGET** preview shows when your current tile will be marked. The red **IMPACT** border stays on the locked tile until its burst. A locked hit is already committed; follow the next safe step and attack to recover. **Back in rhythm** confirms an actual successful dodge-and-attack pair without floor damage. Optional metronome tones distinguish the step and attack beats.
 
-Double-click **Start teaching version.cmd**, or open `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on&lessonMode=unlimited&rhythmMode=ranged`. Read the short introduction and click **Start guided practice**. Follow the green STEP tile, then the gold ATTACK cue on the boss. The markers follow your current position and select a safe neighboring tile. Feedback reports actual successful step-and-attack pairs, missing attacks, late steps and moves that went too far. Pause and Resume let you stop to read.
+Ranged steps stay outside the central square; melee steps stay on its safe inner rim. Damage from the wrong floor still matters for coaching, but only impact-tile damage ends Survival. Avoided impacts and successful step-and-attack pairs have separate counters.
 
-Choose a session and a style. **Unlimited** runs ranged or melee continuously, with one initial count-in and no fifteen-hit breaks. It keeps going after mistakes. **Survival** uses the same continuous rhythm and ends on the first impact-tile hit. Its timer excludes positioning, count-in and paused time. Avoided impacts and clean step-and-attack pairs have separate counters. Floor damage or a missed attack keeps the attempt running. **Retry** starts a fresh attempt while keeping your chosen style and best completed time. Ranged and melee bests are stored separately in this browser.
+Explicit query links remain supported, for example:
 
-**15-hit sets** retains the earlier alternating or single-style drill. Older links without a `lessonMode` still select this option.
-
-Ranged steps stay outside the central square; melee steps stay on its safe inner rim. Before a set, the lesson waits on clear floor while you follow the blue positioning cue to a nearby safe tile. It starts the full count-in when you are ready. Leaving safe floor during the count-in resets it. Practice runs at normal speed with the existing floor-damage, movement and attack-delay rules.
-
-The floor display replaces the millisecond bar. An amber TARGET preview counts toward your movement deadline; a red IMPACT border stays on the actual marked tile and counts toward the burst. Move on green STEP before the mark locks. If you are still on a locked tile, that hit is committed: follow the next STEP to recover.
-
-After a mistake, the coach guides the next safe step and attack while the set continues. Reaching safe floor alone does not confirm recovery. **Back in rhythm** appears after an actual successful dodge-and-attack pair without floor damage. Click **Metronome: Off** to enable optional low STEP and high ATTACK tones. It starts off each time you open the lesson and stays silent while paused or positioning.
-
-The compact panel keeps the current phase and beat visible. Its source is developed on `codex/rhythm-tutorial`. Ordinary practice remains available with `tutorial=off` or no tutorial option. Earlier lesson snapshots are saved at tags `teaching-v1` through `teaching-v4`.
-
-## Development
-
-Requires Node 22.
-
-```sh
-npm ci
-scripts/install-beta-sdk.sh     # beta osrs-sdk packages, installed without saving; rerun after any npm ci
-npm run assets -- --cache-dir <openrs2 cache dir> --reader-path <osrscachereader checkout>
-npm start                       # http://127.0.0.1:8002
+```text
+/?focus=rhythm-loop&invincible=on&tutorial=on&lessonMode=survival&rhythmMode=melee
+/?focus=rhythm-loop&invincible=on&tutorial=on&lessonMode=unlimited&rhythmMode=ranged
+/?focus=rhythm-loop&invincible=on&lessonMode=sets&rhythmMode=alternating
 ```
 
-`npm run assets` extracts models from OpenRS2 cache 2746 into `public/osrs-assets/`, which is never committed. It then draws an inventory icon for each of the trainer's own items, and for the Masori (f) pieces and Zaryte vambraces, from the item's model in the same cache, the way the game client draws it, into `public/osrs-assets/item-icons/`, and writes the boss's overhead icons from the cache's sprite index into `public/osrs-assets/sprites/`. `npm run item-icons` with the same two options redraws only the icons. `npm start` and `npm run build` first run `src/assetBundle/check.ts`, which fails and names each missing key when `public/osrs-assets/` comes from another cache or lacks an asset that `src/assets.ts` configures: in `build-info.json`, in `manifest.json`, as a payload file the manifest names, or in the sound pack. The page logs one `assets:` console error for each configured NPC, model or spotanim its served manifest lacks. The icon renderer in `src/itemIcons/` is ported from RuneLite's cache tool under its BSD 2-clause licence.
+## Local development
 
-## Review
+Requires Node 22, npm and Git with Bash. From a fresh checkout:
 
-Read [CODE_REVIEW.md](CODE_REVIEW.md) before you review a change. It lists the performance red flags and explains `scripts/verify.sh perf`, which measures draw calls, canvas size, GPU resource growth, frame time and tick timing against the budgets in `src/perf/perfGate.json`.
+```sh
+npm ci --no-audit --no-fund
+bash scripts/install-beta-sdk.sh
+npm run practice:assets
+npm start
+```
 
-## Releases
+Open `http://127.0.0.1:8002/`. On Windows, `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local.ps1` installs a project-local Node 22 runtime as well. Then double-click **Start teaching version.cmd** or **Start rhythm practice.cmd**.
 
-Each pull request that changes what players see adds one plain-language line to `src/content/ocellus/changelog.ts`. The line goes in the newest release if that release has not shipped yet. Otherwise it goes in a new release, versioned by the day it ships: `YYYY.MM.DD`, or `YYYY.MM.DD.2` for a second release that day. Players read the notes under **Settings**, then **What's new**, and `node scripts/release-notes.mjs` prints the newest release as Markdown for a GitHub release.
+```sh
+npm run typecheck
+npm test
+npm run build
+```
+
+The SDK is pinned to an exact Git commit in `scripts/install-beta-sdk.sh`; its three packages are installed without saving them. Rerun that installer after every `npm ci`.
+
+Generated models, icons, sounds and bundles are excluded from Git. `practice:assets` downloads cache-2746 runtime assets from the [original public trainer](https://archive-ocellus-trainer.raid-sims.workers.dev). It validates cache identity, file sizes and binary content hashes; the build then checks the configured asset requirements. The finished deployment serves these files itself. A future change to the original asset host can break a new build; existing deployments keep their bundled files.
+
+For independent asset extraction, use OpenRS2 cache 2746 and a cache reader with the `EntityOpsDecoder.decodeSubOp` fix:
+
+```sh
+npm run assets -- --cache-dir <cache-directory> --reader-path <osrscachereader-checkout>
+```
+
+`scripts/netlify-build.sh` retains the upstream full-cache build recipe and pinned reader revision as a reference. Do not commit extracted assets or models.
+
+## Project layout and verification
+
+`src/` contains the browser app and simulator, `scripts/` contains setup and verification, `public/osrs-assets/` is generated, and `dist/` is the deployable static site. `vercel.json` is the hosting configuration. The original Cloudflare and Netlify files remain as upstream references; Vercel does not use them.
+
+The **Vercel build** GitHub Actions workflow runs the hosting build and unit suite on pushes and pull requests. The original comprehensive and performance workflows are manual-only. Read [CODE_REVIEW.md](CODE_REVIEW.md), the [verification skill](.claude/skills/verify-archive-ocellus/SKILL.md), and the [publication design](docs/vercel-publication.md) for the broader checks and build limitations.
+
+Historical checkpoints remain available as Git tags: `practice-v1-15-beats` and `teaching-v1` through `teaching-v5`. The current teaching implementation includes the Unlimited and Survival modes from `teaching-v5`.
 
 ## Privacy
 
-To find what causes lag, a sample of runs sends one anonymous performance summary when the run ends or the page is hidden mid-run. It holds the frame and tick timings, the view (always 3D), the screen scale and game size rounded to 50 pixels, the CPU core count, the graphics card family (such as `nvidia` or `apple`, never the full name), the browser family, the app version, the phase and how the run ended. It carries no ID, sets no cookie and stores nothing that identifies a player, and the trainer's code does not store IP addresses. Page views are counted with Cloudflare Web Analytics, which sets no cookies. Web Analytics loads on every page view unless you opt out. Only the performance summary is sampled. To turn both off, open **Settings** and untick **Send anonymous performance data**. The choice is saved in the browser. The summary stops at once, and page view counting stops from the next page load.
+This Vercel configuration has anonymous performance sampling disabled (`src/telemetry.json` sets `sampleRate` to 0), no Cloudflare analytics token and no telemetry backend. It does not send gameplay performance summaries or load Cloudflare Web Analytics. Settings and Survival bests are stored locally in your browser. Vercel may maintain its standard hosting request logs.
 
-The share of runs that send a summary is `sampleRate` in `src/telemetry.json`, served as `/telemetry.json`. The Worker in `src/worker/worker.ts` accepts summaries at `/t` and writes each one to Workers Analytics Engine. `scripts/perf-report.mjs` summarises them.
+## Credit and licence
 
-Until the Analytics Engine dataset and Web Analytics are set up, releases send nothing. `sampleRate` is 0, the build runs without `CF_WEB_ANALYTICS_TOKEN`, and `npx wrangler deploy --config wrangler.release.jsonc` deploys the Worker without its `PERF` binding, so `/t` answers 204 and stores nothing.
+Original trainer made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas)), with help from [Alessandro Rodi](https://github.com/alessandrorodi). This repository adapts it for focused rhythm practice and teaching.
 
-## Credit
-
-Made by Julian Dasilva / Moarhots ([@ShadowJdas](https://x.com/ShadowJdas) on X), with help from [Alessandro Rodi](https://github.com/alessandrorodi).
+Built on [osrs-sdk](https://github.com/OldSchoolSDK/osrs-sdk), following the layout of [ColosseumTrainer](https://github.com/Supalosa/ColosseumTrainer). The inventory icon renderer is ported from RuneLite's cache tool under its BSD 2-clause licence.
 
 Created using intellectual property belonging to Jagex Limited under the terms of Jagex's Fan Content Policy. This content is not endorsed by or affiliated with Jagex.
 
-Game models are extracted, and item icons drawn, from the game cache at build time. Neither is stored in this repository.
+Keep this project free: no ads, donations or paid features. Game models are extracted, and item icons drawn, from the game cache at build time. Neither is stored in this repository.
 
-## Licence
-
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0-only. See [LICENSE](LICENSE). The original Git history and attribution are retained.

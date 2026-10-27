@@ -1,0 +1,36 @@
+name: Vercel build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+      - name: Install locked dependencies and pinned SDK
+        run: npm ci --no-audit --no-fund && bash scripts/install-beta-sdk.sh
+      - name: Build exactly as Vercel does
+        run: npm run practice:assets && npm run typecheck && npm run build
+      - name: Test the trainer
+        run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-site
+          path: dist/
+          retention-days: 7

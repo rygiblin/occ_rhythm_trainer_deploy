@@ -860,6 +860,9 @@ function TrainerPage({ trainer, drill, flags }: Opened) {
                 </a>
               </span>
             </p>
+            <p id="trainer_source">
+              <a href="https://github.com/ryansgiblin/occ_rhythm_trainer" target="_blank" rel="noopener noreferrer">Trainer source</a>
+            </p>
             <p id="credit_line">{CREDIT_LINE}</p>
             <p id="app_version">v{LATEST_RELEASE.version}</p>
           </footer>

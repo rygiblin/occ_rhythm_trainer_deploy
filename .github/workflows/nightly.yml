@@ -1,8 +1,6 @@
-name: Nightly
+name: Upstream performance comparison (manual)
 
 on:
-  schedule:
-    - cron: "23 7 * * *"
   workflow_dispatch:
 
 permissions:

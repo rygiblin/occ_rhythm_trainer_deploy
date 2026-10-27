@@ -2,6 +2,13 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.7",
+    notes: [
+      "The site opens guided unlimited ranged practice by default while keeping the options in existing practice links.",
+      "The footer links to this rhythm trainer's source alongside the original simulator credits.",
+    ],
+  },
+  {
     version: "2026.10.26.6",
     notes: [
       "Unlimited practice keeps your selected ranged or melee rhythm running without fifteen-hit breaks.",

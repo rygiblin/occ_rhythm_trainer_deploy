@@ -14,12 +14,11 @@ const FIRST_RELEASE = {
 };
 
 const NEXT_RELEASE = {
-  version: "2026.10.26.6",
+  version: "2026.10.26.7",
   date: "2026-10-26",
   notes: [
-    "Unlimited practice keeps your selected ranged or melee rhythm running without fifteen-hit breaks.",
-    "Survival training ends on the first impact-tile hit and tracks your time, avoided impacts and best completed run for each style.",
-    "Choose continuous practice or the original fifteen-hit sets, and retry a Survival attempt from its result panel.",
+    "The site opens guided unlimited ranged practice by default while keeping the options in existing practice links.",
+    "The footer links to this rhythm trainer's source alongside the original simulator credits.",
   ],
 };
 
