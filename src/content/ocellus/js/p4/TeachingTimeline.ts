@@ -1,7 +1,7 @@
 import type { Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
 import type { Moment } from "../../../../sim/schedule";
-import type { RhythmMode } from "../OcellusTimings";
+import type { LessonMode, RhythmMode } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { Beat, Phase } from "../P4Types";
 import type { P4Schedule } from "./schedule";
@@ -12,7 +12,7 @@ type Style = "ranged" | "melee";
 export type TeachingLesson =
   | Readonly<{ kind: "positioning"; style: Style }>
   | Readonly<{ kind: "count-in"; style: Style; remaining: TickSpan }>
-  | Readonly<{ kind: "practice"; style: Style; beat: number; count: number }>;
+  | Readonly<{ kind: "practice"; style: Style; beat: number; count: number | null }>;
 
 export class TeachingTimeline {
   private cursor = tick(0);
@@ -20,12 +20,12 @@ export class TeachingTimeline {
   private last: Tick | null = null;
   private readonly history = new Map<Tick, Moment<Phase, Beat>>();
 
-  constructor(private readonly schedule: P4Schedule, private readonly mode: RhythmMode, private readonly holes: readonly Tile[]) {}
+  constructor(private readonly schedule: P4Schedule, private readonly mode: RhythmMode, private readonly holes: readonly Tile[], private readonly lessonMode: LessonMode = "sets") {}
 
   get virtualTick(): Tick { return this.cursor; }
 
   lesson(): TeachingLesson {
-    const section = rhythmSectionAt(this.cursor, this.mode);
+    const section = rhythmSectionAt(this.cursor, this.mode, this.lessonMode);
     if (this.positioning) return { kind: "positioning", style: section.style };
     return section.kind === "prepare"
       ? { kind: "count-in", style: section.style, remaining: section.remaining }
@@ -36,8 +36,8 @@ export class TeachingTimeline {
     const first = this.last === null;
     let entered = first;
     if (!first && !this.positioning) {
-      const current = rhythmSectionAt(this.cursor, this.mode);
-      const next = rhythmSectionAt(tick(this.cursor + 1), this.mode);
+      const current = rhythmSectionAt(this.cursor, this.mode, this.lessonMode);
+      const next = rhythmSectionAt(tick(this.cursor + 1), this.mode, this.lessonMode);
       if (current.kind === "practice" && next.kind === "prepare") {
         this.cursor = tick(this.cursor + 1);
         this.positioning = true;
@@ -60,15 +60,15 @@ export class TeachingTimeline {
     let cursor = this.cursor;
     let positioning = this.positioning;
     for (let offset = 0; offset < at - this.last && !positioning; offset++) {
-      const current = rhythmSectionAt(cursor, this.mode);
+      const current = rhythmSectionAt(cursor, this.mode, this.lessonMode);
       cursor = tick(cursor + 1);
-      if (current.kind === "practice" && rhythmSectionAt(cursor, this.mode).kind === "prepare") positioning = true;
+      if (current.kind === "practice" && rhythmSectionAt(cursor, this.mode, this.lessonMode).kind === "prepare") positioning = true;
     }
     return this.moment(at, cursor, positioning);
   }
 
   private ready(player: Tile): boolean {
-    return sameTile(player, teachingTilesAt(this.cursor, player, this.mode, this.holes).A);
+    return sameTile(player, teachingTilesAt(this.cursor, player, this.mode, this.holes, this.lessonMode).A);
   }
 
   private moment(at: Tick, cursor: Tick, positioning: boolean): Moment<Phase, Beat> {

@@ -39,7 +39,7 @@ import type { Orbs, OrbStep } from "../p4/orb";
 import { drain, expireOrb, forgiveOrbDebt, formOrb, matureOrb, moveOver, NO_ORBS, releaseUnclaimedOuterOrb, returnDueOrbs } from "../p4/orb";
 import { rollInt } from "../roll";
 import { compileSchedule } from "../p4/schedule";
-import { rhythmSectionAt } from "../p4/rhythm";
+import { lessonModeOf, rhythmSectionAt } from "../p4/rhythm";
 import type { TutorialCue, TutorialGuide, TutorialThreat } from "../p4/tutorial";
 import { sameTile, tutorialGuide } from "../p4/tutorial";
 import { TeachingTimeline } from "../p4/TeachingTimeline";
@@ -157,7 +157,7 @@ export class Ocellus extends Mob {
     super(region, OCELLUS_P4.geometry.bossAnchor.value);
     this.schedule = compileSchedule(config.seed, config.choices);
     this.holes = TileSet.at(this.schedule.acts("floor-holes") ? config.choices.floorHoleLayout.option.value.tiles : []);
-    this.teaching = config.choices.focus.key === "rhythm-loop" && config.choices.tutorial.option.value ? new TeachingTimeline(this.schedule, config.choices.rhythmMode.key, this.holes.tiles()) : null;
+    this.teaching = config.choices.focus.key === "rhythm-loop" && config.choices.tutorial.option.value ? new TeachingTimeline(this.schedule, config.choices.rhythmMode.key, this.holes.tiles(), lessonModeOf(config.choices)) : null;
     this.binding = new EncounterBinding(config.seed, this.schedule.start, target, this.hooks);
   }
 
@@ -209,7 +209,7 @@ export class Ocellus extends Mob {
   teachingGuide(): TutorialGuide | null {
     if (this.config.choices.focus.key !== "rhythm-loop" || !this.config.choices.tutorial.option.value) return null;
     const run = this.runState();
-    return tutorialGuide(run.kind === "running" ? this.teaching?.virtualTick ?? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key, this.holes.tiles());
+    return tutorialGuide(run.kind === "running" ? this.teaching?.virtualTick ?? run.tick : null, this.target.observe().tile, this.config.choices.rhythmMode.key, this.holes.tiles(), lessonModeOf(this.config.choices));
   }
 
   teachingState() {

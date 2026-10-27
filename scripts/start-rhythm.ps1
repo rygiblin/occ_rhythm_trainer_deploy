@@ -7,7 +7,7 @@ if (-not (Test-Path -LiteralPath $practiceNode)) { throw 'The local runtime is m
 $practiceWebpack = Join-Path $practiceRoot 'node_modules/webpack-cli/bin/cli.js'
 if (-not (Test-Path -LiteralPath $practiceWebpack)) { throw 'Dependencies are missing. Run scripts/setup-local.ps1 first.' }
 $practiceUrl = 'http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on'
-if ($Tutorial) { $practiceUrl += '&tutorial=on' }
+if ($Tutorial) { $practiceUrl += '&tutorial=on&lessonMode=unlimited&rhythmMode=ranged' }
 $practiceState = Join-Path $practiceRoot '.verify/local-rhythm'
 New-Item -ItemType Directory -Path $practiceState -Force | Out-Null
 

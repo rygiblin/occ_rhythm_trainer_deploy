@@ -5,7 +5,7 @@ import { OCELLUS_P4 } from "./OcellusTimings";
 import { dress, loadoutSnapshot } from "./OcellusLoadout";
 import { OcellusPlayer } from "./OcellusPlayer";
 import type { SoundId, Tile } from "../../../sim/brands";
-import { tick } from "../../../sim/brands";
+import { span, tick } from "../../../sim/brands";
 import type { FightEvent, FightLog, FightSnapshot, PlayerHitSource, VoidKind } from "./P4Types";
 import { ExplosionViews } from "./entities/ExplosionViews";
 import { BossLook, FloorHole, FragmentFlash, OrbView, PlayerLook, VoidField } from "./entities/P4Views";
@@ -13,7 +13,9 @@ import { Brazier, Walkway } from "./entities/Scenery";
 import { BossFootprint, Ocellus } from "./mobs/Ocellus";
 import { BRAZIERS, CURB, PLATFORM, VOID_MASKS, voidUnder } from "./p4/floor";
 import type { RhythmSection } from "./p4/rhythm";
-import { rhythmSectionAt } from "./p4/rhythm";
+import { lessonModeOf, rhythmSectionAt } from "./p4/rhythm";
+import type { TeachingAttempt } from "./p4/TeachingAttempt";
+import { advanceAttempt } from "./p4/TeachingAttempt";
 import type { TutorialStatus } from "./p4/tutorial";
 import { tutorialFeedback, tutorialRecovery } from "./p4/tutorial";
 import { TutorialTile } from "./entities/TutorialTile";
@@ -135,6 +137,7 @@ export class OcellusRegion extends Region {
   private mounted: Mounted = { kind: "unmounted" };
   private invincibleSetting = false;
   private teachingResult: Pick<TutorialStatus, "feedback" | "clean" | "attempts" | "recovery"> = { feedback: null, clean: 0, attempts: 0, recovery: { kind: "steady" } };
+  private attempt: TeachingAttempt = { kind: "waiting" };
 
   get invincible(): boolean {
     return this.config.choices.focus.key === "rhythm-loop" || this.invincibleSetting;
@@ -197,7 +200,8 @@ export class OcellusRegion extends Region {
 
   initialiseRegion(): { player: Player } {
     this.teachingResult = { feedback: null, clean: 0, attempts: 0, recovery: { kind: "steady" } };
-    const initialStyle = rhythmSectionAt(tick(0), this.config.choices.rhythmMode.key).style;
+    this.attempt = { kind: "waiting" };
+    const initialStyle = rhythmSectionAt(tick(0), this.config.choices.rhythmMode.key, lessonModeOf(this.config.choices)).style;
     const teachingTiles = OCELLUS_P4.teaching.value.tiles[initialStyle];
     const spawn = this.tutorialEnabled() ? teachingTiles.A
       : this.config.choices.focus.key === "rhythm-loop" ? OCELLUS_P4.rhythm.value.spawn : OCELLUS_P4.geometry.playerSpawn.value;
@@ -210,7 +214,7 @@ export class OcellusRegion extends Region {
     );
     const ocellus: Ocellus = new Ocellus(this, this.config, player, () => this.invincible);
     const setup = this.config.choices.focus.key === "rhythm-loop"
-      ? OCELLUS_P4.choices.setup.options[rhythmSectionAt(tick(0), this.config.choices.rhythmMode.key).style].value
+      ? OCELLUS_P4.choices.setup.options[initialStyle].value
       : this.config.choices.setup.option.value;
     dress(player, setup);
     Object.values(sounds).forEach((sound) => SoundCache.preload(cacheSound(sound.value)));
@@ -222,7 +226,7 @@ export class OcellusRegion extends Region {
       explosions: new ExplosionViews(this),
       boss: new BossLook(ocellus),
       player: new PlayerLook(player),
-      teaching: this.tutorialEnabled() ? [new TutorialTile(this, "A", teachingTiles, () => ocellus.teachingCue(), () => ocellus.teachingThreat()), new TutorialTile(this, "B", teachingTiles, () => ocellus.teachingCue(), () => ocellus.teachingThreat())] : [],
+      teaching: this.tutorialEnabled() ? [new TutorialTile(this, "A", teachingTiles, () => this.attempt.kind === "failed" ? null : ocellus.teachingCue(), () => this.attempt.kind === "failed" ? { kind: "none" } : ocellus.teachingThreat()), new TutorialTile(this, "B", teachingTiles, () => this.attempt.kind === "failed" ? null : ocellus.teachingCue(), () => this.attempt.kind === "failed" ? { kind: "none" } : ocellus.teachingThreat())] : [],
       threat: this.tutorialEnabled() ? new TutorialThreatTile(this, () => this.tutorialStatus()) : null,
       chat: [],
     };
@@ -257,6 +261,7 @@ export class OcellusRegion extends Region {
     if (!row) return;
     const floor = voidUnder(row.phase);
     if (this.tutorialEnabled()) {
+      if (lessonModeOf(this.config.choices) !== "sets") this.attempt = advanceAttempt(this.attempt, row, lessonModeOf(this.config.choices));
       const feedback = tutorialFeedback(row);
       const safeFloor = floor === null || !VOID_MASKS[floor].contains(row.playerAtPostTick.tile);
       this.teachingResult = {
@@ -273,6 +278,7 @@ export class OcellusRegion extends Region {
     views.threat?.show(this.mounted.ocellus.teachingThreat());
     views.holes.forEach((hole) => hole.cover(floor));
     row.events.forEach((event) => present(event, views, row.playerAtPostTick.tile));
+    if (this.attempt.kind === "failed") this.world.stopTicking();
   }
 
   snapshot(): FightSnapshot | null {
@@ -288,7 +294,7 @@ export class OcellusRegion extends Region {
   rhythmStatus(): RhythmSection | null {
     if (this.config.choices.focus.key !== "rhythm-loop" || this.mounted.kind === "unmounted") return null;
     const run = this.mounted.ocellus.runState();
-    return run.kind === "running" ? rhythmSectionAt(this.mounted.ocellus.teachingState()?.virtualTick ?? run.tick, this.config.choices.rhythmMode.key) : null;
+    return run.kind === "running" ? rhythmSectionAt(this.mounted.ocellus.teachingState()?.virtualTick ?? run.tick, this.config.choices.rhythmMode.key, lessonModeOf(this.config.choices)) : null;
   }
 
   tutorialEnabled(): boolean {
@@ -304,7 +310,9 @@ export class OcellusRegion extends Region {
     const at = run.kind === "running" ? run.tick : null;
     const floor = run.kind === "running" ? voidUnder(run.phase) : null;
     const safeFloor = floor === null || !VOID_MASKS[floor].contains(this.mounted.player.observe().tile);
-    return { ...guide, ...state, threat: this.mounted.ocellus.teachingThreat(), safeFloor, tickProgress: this.world.tickPercent, ...this.teachingResult, tick: at };
+    const lessonMode = lessonModeOf(this.config.choices);
+    const finished = this.attempt.kind === "failed";
+    return { ...guide, ...state, cue: finished ? { kind: "prepare", style: state.lesson.style, remaining: span(0) } : guide.cue, threat: finished ? { kind: "none" } : this.mounted.ocellus.teachingThreat(), lessonMode, attempt: lessonMode === "sets" ? null : this.attempt, safeFloor, tickProgress: this.world.tickPercent, ...this.teachingResult, tick: at };
   }
 
   chat(): readonly string[] {

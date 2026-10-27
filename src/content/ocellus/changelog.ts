@@ -2,6 +2,14 @@ import type { Changelog } from "../../releases";
 
 export const CHANGELOG: Changelog = [
   {
+    version: "2026.10.26.6",
+    notes: [
+      "Unlimited practice keeps your selected ranged or melee rhythm running without fifteen-hit breaks.",
+      "Survival training ends on the first impact-tile hit and tracks your time, avoided impacts and best completed run for each style.",
+      "Choose continuous practice or the original fifteen-hit sets, and retry a Survival attempt from its result panel.",
+    ],
+  },
+  {
     version: "2026.10.26.5",
     notes: [
       "Teaching mode shows the next target and locked impact directly on the floor instead of a millisecond bar.",

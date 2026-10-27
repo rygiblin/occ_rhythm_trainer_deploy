@@ -4,7 +4,21 @@ The saved original remains at tag `practice-v1-15-beats` and commit `1bd3ffcae0e
 
 The teaching version is on `codex/rhythm-tutorial`, selected with `tutorial=on` on the development preview. It adds dynamic safe-floor guidance and enables the existing floor-damage rule for this lesson. Original movement, cooldown, explosion and invincibility rules are reused. The saved practice version remains unchanged.
 
-## Teaching v4: current verification
+## Teaching v5: current verification
+
+Continuous Unlimited and Survival modes pass all 97 focused tests. The new endurance tests complete 65 uninterrupted pairs in each style, with unique pulses 0 through 64, two-tick attack spacing, no return to preparation, and no floor damage on the guided route. They also verify initial-only floor grace, Unlimited recovery after hits, Survival's exact failure criterion, immutable results, restart and style-specific record storage. TypeScript and type discipline report zero findings. The production build, cache-header validation and phase-code check pass. Independent source and comment review found no actionable issues.
+
+The real-input browser proof completes forty ranged Unlimited pairs and twenty melee Unlimited pairs without fifteen-hit breaks. After deliberately taking a ranged hit, Unlimited continues and the next valid pair confirms recovery.
+
+Survival completes twenty clean ranged pairs, pauses without adding time, then ends on the first deliberately missed impact. Its result is 41 active elapsed ticks, or 24.6 seconds, with twenty avoided impacts and twenty clean pairs. The world and score remain frozen. In-place Retry clears the attempt and earns three fresh pairs while retaining the best. Reload preserves that record. A separate melee attempt fails on its first impact at one elapsed tick, or 0.6 seconds, and records its own best without changing ranged's record. No page errors occur.
+
+The updated teaching launcher was checked against the verified local preview process and returns the Unlimited ranged URL. The original practice launcher is unchanged. Older links without `lessonMode` retain fifteen-hit sets.
+
+Current evidence is `.verify/local-rhythm/tutorial-v5/`, including `verdict.json`, score and state snapshots, and JPEG screenshots. Run `scripts/verify-tutorial-browser.mjs --endurance` with the project-local Node runtime to reproduce it. The existing no-argument driver still verifies the fifteen-hit lesson. The implementation follows [Teaching v5](teaching-v5-design.md).
+
+The Windows harness limitations below remain unchanged; the full repository suite is not claimed green.
+
+## Teaching v4: historical verification
 
 The spatial threat display and recovery coach pass all 84 focused tutorial, rhythm, mode, floor, explosion, attack-speed, invincibility and release tests. The final label correction also passes all 27 tutorial tests. TypeScript and type discipline report zero findings. The production build, cache-header validation and phase-code check pass.
 

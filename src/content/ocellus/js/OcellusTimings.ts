@@ -983,6 +983,11 @@ export const OCELLUS_P4 = {
       off: selected(false, "assumption", "unscaled", "ordinary practice without teaching markers", NO_WIKI_PRACTICE, PRACTICE),
       on: selected(true, "assumption", "unscaled", "guided rhythm practice with tile and attack cues", NO_WIKI_PRACTICE, PRACTICE),
     }),
+    lessonMode: choice("sets", {
+      sets: selected("sets", "assumption", "unscaled", "local teaching repeats fifteen-hit sets", NO_WIKI_PRACTICE, PRACTICE),
+      unlimited: selected("unlimited", "assumption", "unscaled", "local teaching keeps the chosen style active without set breaks", NO_WIKI_PRACTICE, PRACTICE),
+      survival: selected("survival", "assumption", "unscaled", "local teaching ends an attempt on the first impact-tile hit", NO_WIKI_PRACTICE, PRACTICE),
+    }),
     rhythmMode: choice("alternating", {
       alternating: selected<readonly [VoidKind, ...VoidKind[]]>(["inner-void", "outer-void"], "assumption", "unscaled", "local rhythm practice alternates fifteen ranged and fifteen melee beats", NO_WIKI_PRACTICE, PRACTICE),
       ranged: selected<readonly [VoidKind, ...VoidKind[]]>(["inner-void"], "assumption", "unscaled", "local rhythm practice repeats fifteen ranged beats", NO_WIKI_PRACTICE, PRACTICE),
@@ -1433,6 +1438,7 @@ type ChoiceName = keyof Choices;
 type OptionsOf<K extends ChoiceName> = Choices[K]["options"];
 type OptionKey<K extends ChoiceName> = keyof OptionsOf<K> & string;
 export type RhythmMode = OptionKey<"rhythmMode">;
+export type LessonMode = OptionKey<"lessonMode">;
 const SCATTERED = "scattered";
 export type DrillSelection = { readonly [K in Exclude<ChoiceName, "floorHoleLayout">]?: OptionKey<K> } & Readonly<{ floorHoleLayout?: OptionKey<"floorHoleLayout"> | typeof SCATTERED }>;
 const CHOICES: { readonly [K in ChoiceName]: Readonly<{ default: OptionKey<K>; options: OptionsOf<K> }> } = OCELLUS_P4.choices;
@@ -1488,6 +1494,7 @@ function resolveChoices(lookup: (name: ChoiceName) => string | undefined, reject
     orbPickupRadius: pick("orbPickupRadius"),
     outerOrbTile: pick("outerOrbTile"),
     rhythmMode: pick("rhythmMode"),
+    lessonMode: pick("lessonMode"),
     tutorial: pick("tutorial"),
     focus: pick("focus"),
     drillStart: pick("drillStart"),

@@ -1,12 +1,13 @@
 import type { Tick, TickSpan, Tile } from "../../../../sim/brands";
 import { tick } from "../../../../sim/brands";
 import { beside } from "../../../../sim/tiles";
-import type { RhythmMode } from "../OcellusTimings";
+import type { LessonMode, RhythmMode } from "../OcellusTimings";
 import { OCELLUS_P4 } from "../OcellusTimings";
 import type { TickRow } from "../P4Types";
 import { rhythmSectionAt } from "./rhythm";
 import { FOOTPRINT, PLATFORM, VOID_MASKS } from "./floor";
 import type { TeachingLesson } from "./TeachingTimeline";
+import type { TeachingAttempt } from "./TeachingAttempt";
 
 type Style = "ranged" | "melee";
 export type TeachingPair = Readonly<{ A: Tile; B: Tile }>;
@@ -25,13 +26,13 @@ export type TutorialRecovery =
   | Readonly<{ kind: "steady" }>
   | Readonly<{ kind: "recovering"; since: Tick; cause: Exclude<TutorialFeedback, "clean-pair"> | "floor" }>
   | Readonly<{ kind: "recovered"; at: Tick }>;
-export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; threat: TutorialThreat; recovery: TutorialRecovery; safeFloor: boolean; lesson: TeachingLesson; virtualTick: Tick; tickProgress: number; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
+export type TutorialStatus = Readonly<{ cue: TutorialCue; tiles: TeachingPair; threat: TutorialThreat; recovery: TutorialRecovery; safeFloor: boolean; lesson: TeachingLesson; lessonMode: LessonMode; attempt: TeachingAttempt | null; virtualTick: Tick; tickProgress: number; feedback: TutorialFeedback | null; clean: number; attempts: number; tick: Tick | null }>;
 export type TutorialGuide = Readonly<{ cue: TutorialCue; tiles: TeachingPair }>;
 
 export const sameTile = (left: Tile, right: Tile): boolean => left.x === right.x && left.y === right.y;
 
-export function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TeachingPair {
-  const section = rhythmSectionAt(at ?? tick(0), mode);
+export function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[], lessonMode: LessonMode = "sets"): TeachingPair {
+  const section = rhythmSectionAt(at ?? tick(0), mode, lessonMode);
   const safe = (at: Tile): boolean => PLATFORM.contains(at) && !FOOTPRINT.contains(at) && !VOID_MASKS[section.void].contains(at) && !holes.some((hole) => sameTile(at, hole));
   const pairAt = (anchor: Tile): TeachingPair | null => {
     if (!safe(anchor)) return null;
@@ -51,12 +52,12 @@ export function teachingTilesAt(at: Tick | null, player: Tile, mode: RhythmMode,
   throw new RangeError(`the ${section.style} tutorial has no safe neighboring tiles`);
 }
 
-export function tutorialGuide(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[]): TutorialGuide {
-  const current = rhythmSectionAt(at ?? tick(0), mode);
-  const tiles = teachingTilesAt(at, player, mode, holes);
+export function tutorialGuide(at: Tick | null, player: Tile, mode: RhythmMode, holes: readonly Tile[], lessonMode: LessonMode = "sets"): TutorialGuide {
+  const current = rhythmSectionAt(at ?? tick(0), mode, lessonMode);
+  const tiles = teachingTilesAt(at, player, mode, holes, lessonMode);
   if (!sameTile(player, tiles.A)) return { tiles, cue: { kind: "return-to-pair", style: current.style, target: "A", tile: tiles.A } };
   if (at === null) return { tiles, cue: { kind: "prepare", style: current.style, remaining: OCELLUS_P4.rhythm.value.prepare } };
-  const next = rhythmSectionAt(tick(at + 1), mode);
+  const next = rhythmSectionAt(tick(at + 1), mode, lessonMode);
   if (next.kind === "prepare") return { tiles, cue: { kind: "prepare", style: next.style, remaining: next.remaining } };
   if (current.kind === "prepare" || current.beat !== next.beat) {
     return { tiles, cue: { kind: "step", style: next.style, beat: next.beat, target: "B", tile: tiles.B } };

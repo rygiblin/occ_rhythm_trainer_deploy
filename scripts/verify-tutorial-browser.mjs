@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const browser = resolve(root, ".local-tools/node_modules/agent-browser/bin/agent-browser-win32-x64.exe");
-const evidence = resolve(root, ".verify/local-rhythm/tutorial-v4");
+const endurance = process.argv.includes("--endurance");
+const evidence = resolve(root, endurance ? ".verify/local-rhythm/tutorial-v5" : ".verify/local-rhythm/tutorial-v4");
 mkdirSync(evidence, { recursive: true });
 
 function command(...args) {
@@ -143,19 +144,7 @@ async function cleanPair(before, name) {
   return impact;
 }
 
-try {
-  command("set", "viewport", "1280", "800");
-  command("open", "http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on&seed=1");
-  input = await connectInput();
-  command("wait", "#tutorial_start:not([disabled])", "--timeout", "30000");
-  command("snapshot", "-i");
-  await capture("intro");
-  const intro = state();
-  assert.equal(intro.ticking, false);
-  assert.equal(intro.fight.run.kind, "waiting");
-  await sleep(1100);
-  assert.equal(state().tick, intro.tick);
-
+function observePaintAndAudio() {
   read(`(() => {
     window.__teachingPaint = { attack: null, labels: [] };
     window.__teachingAudio = [];
@@ -181,6 +170,21 @@ try {
     };
     return true;
   })()`);
+}
+
+async function verifySets() {
+  command("set", "viewport", "1280", "800");
+  command("open", "http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on&seed=1");
+  input = await connectInput();
+  command("wait", "#tutorial_start:not([disabled])", "--timeout", "30000");
+  command("snapshot", "-i");
+  await capture("intro");
+  const intro = state();
+  assert.equal(intro.ticking, false);
+  assert.equal(intro.fight.run.kind, "waiting");
+  await sleep(1100);
+  assert.equal(state().tick, intro.tick);
+  observePaintAndAudio();
   command("click", "#tutorial_start");
   await tickTo(0);
   command("click", "#tutorial_pause");
@@ -277,6 +281,111 @@ try {
   assert.deepEqual(errors.errors ?? [], []);
   writeFileSync(resolve(evidence, "verdict.json"), JSON.stringify({ passed: true, cleanPairs: 32, floorHits: 0, movementDeadlinePreview: true, fixedActualThreat: true, committedHitWarning: true, recoveryConfirmedByCleanPair: true, steadyAfterSecondCleanPair: true, numericBarRemoved: true, heldPositioningTicks: [10, 5], fullCountInAfterPositioning: true, inactiveStepHidden: true, nativeCountdownClock: true, metronomeTones: audio.length, distinctTones: true, noDuplicateTones: true, dynamicStepAfterManualMove: true, clickedActualBossLabel: true, feedback: ["clean-pair", "dodge-without-attack", "hit", "moved-too-far"], introWaits: true, pauseFreezesTick: true, ordinaryPracticeRestored: true, errors }, null, 2));
   console.log("PASS teaching v4: 32 clean pairs, no floor hits, actual locked threats and movement previews, live recovery after errors, clear markers, metronome, readiness, pause and ordinary practice restored.");
+}
+
+async function openContinuous(mode, style, name) {
+  command("set", "viewport", "1280", "800");
+  command("open", `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on&seed=1&lessonMode=${mode}&rhythmMode=${style}`);
+  input?.close();
+  input = await connectInput();
+  command("wait", "#tutorial_start:not([disabled])", "--timeout", "30000");
+  observePaintAndAudio();
+  assert.equal(state().tutorial.lessonMode, mode);
+  assert.equal(state().tutorial.lesson.style, style);
+  await capture(`${name}-intro`);
+  command("click", "#tutorial_start");
+  await tickTo(0);
+}
+
+async function continuousPairs(style, count, name) {
+  let impact = null;
+  for (let pair = 1; pair <= count; pair++) {
+    const before = impact?.tutorial.cue.kind === "step" ? impact : await waitFor((snapshot) => snapshot.tutorial.cue.kind === "step", `${name} next step`);
+    assert.equal(before.tutorial.lesson.style, style);
+    impact = await cleanPair(before, `${name}-${pair}`);
+    assert.equal(impact.tutorial.lesson.kind, "practice");
+    assert.equal(impact.tutorial.lesson.count, null);
+    assert.equal(impact.tutorial.lesson.beat, pair);
+    assert.equal(impact.tutorial.attempt.kind, "running");
+    assert.equal(impact.tutorial.attempt.survivedImpacts, pair);
+    assert.equal(impact.tutorial.attempt.cleanPairs, pair);
+    assert.equal(impact.tutorial.attempt.elapsed, impact.tutorial.tick - 5);
+  }
+  const rows = read("window.__archiveOcellusProbe.log().rows");
+  const marks = rows.flatMap((row) => row.events).filter((event) => event.kind === "explosion-marked");
+  assert.deepEqual(marks.map((mark) => mark.pulse), Array.from({ length: count }, (_, index) => index));
+  assert.ok(rows.filter((row) => row.tick >= 5).every((row) => row.phase.stage === (style === "ranged" ? "inner-void" : "outer-void")));
+  assert.deepEqual(rows.flatMap((row) => row.events).filter((event) => event.kind === "floor-hit"), []);
+  return impact;
+}
+
+async function verifyEndurance() {
+  await openContinuous("unlimited", "ranged", "unlimited-ranged");
+  const ranged = await continuousPairs("ranged", 40, "unlimited-ranged");
+  const hit = await tickTo(ranged.tutorial.tick + 2);
+  assert.equal(hit.tutorial.feedback, "hit");
+  assert.equal(hit.tutorial.attempt.kind, "running");
+  assert.equal(hit.ticking, true);
+  const unlimitedRecovery = await cleanPair(hit, "unlimited-ranged-recovery");
+  assert.equal(unlimitedRecovery.tutorial.recovery.kind, "recovered");
+  await capture("unlimited-continues-after-hit");
+
+  await openContinuous("unlimited", "melee", "unlimited-melee");
+  await continuousPairs("melee", 20, "unlimited-melee");
+  await capture("unlimited-melee-past-fifteen");
+
+  await openContinuous("survival", "ranged", "survival-ranged");
+  const oldBest = Number(read("localStorage.getItem('archive-ocellus:survival-best:ranged')") ?? 0);
+  const survived = await continuousPairs("ranged", 20, "survival-ranged");
+  command("click", "#tutorial_pause");
+  const paused = state();
+  await sleep(1100);
+  assert.equal(state().tutorial.attempt.elapsed, paused.tutorial.attempt.elapsed);
+  command("click", "#tutorial_pause");
+  const failed = await waitFor((snapshot) => snapshot.tutorial.attempt.kind === "failed", "first impact-hit result");
+  assert.equal(failed.tutorial.tick, survived.tutorial.tick + 2);
+  assert.equal(failed.tutorial.attempt.endedAt, failed.tutorial.tick);
+  assert.equal(failed.tutorial.attempt.elapsed, failed.tutorial.tick - 5);
+  assert.equal(failed.tutorial.attempt.survivedImpacts, 20);
+  assert.equal(failed.tutorial.attempt.cleanPairs, 20);
+  assert.equal(failed.ticking, false);
+  assert.equal(failed.tutorial.threat.kind, "none");
+  assert.ok(read("document.querySelector('#tutorial_pause')?.disabled !== false"));
+  await capture("survival-ranged-result", failed);
+  await sleep(1100);
+  assert.equal(state().tutorial.tick, failed.tutorial.tick);
+  assert.deepEqual(state().tutorial.attempt, failed.tutorial.attempt);
+  const best = Number(read("localStorage.getItem('archive-ocellus:survival-best:ranged')"));
+  assert.equal(best, Math.max(oldBest, failed.tutorial.attempt.elapsed));
+  command("click", "#tutorial_retry");
+  await waitFor((snapshot) => snapshot.tutorial.tick === 0 && snapshot.ticking, "mounted Retry reset");
+  assert.equal(state().tutorial.clean, 0);
+  assert.equal(state().tutorial.recovery.kind, "steady");
+  await continuousPairs("ranged", 3, "retry");
+  assert.equal(Number(read("localStorage.getItem('archive-ocellus:survival-best:ranged')")), best);
+  command("reload");
+  command("wait", "#tutorial_start:not([disabled])", "--timeout", "30000");
+  assert.equal(Number(read("localStorage.getItem('archive-ocellus:survival-best:ranged')")), best);
+  await capture("survival-best-after-reload");
+
+  await openContinuous("survival", "melee", "survival-melee");
+  const oldMeleeBest = Number(read("localStorage.getItem('archive-ocellus:survival-best:melee')") ?? 0);
+  const meleeFailed = await waitFor((snapshot) => snapshot.tutorial.attempt.kind === "failed", "first melee impact hit");
+  assert.equal(meleeFailed.tutorial.attempt.elapsed, 1);
+  assert.equal(meleeFailed.tutorial.attempt.survivedImpacts, 0);
+  assert.equal(Number(read("localStorage.getItem('archive-ocellus:survival-best:melee')")), Math.max(oldMeleeBest, 1));
+  assert.equal(Number(read("localStorage.getItem('archive-ocellus:survival-best:ranged')")), best);
+  await capture("survival-melee-result");
+  const errors = command("errors");
+  assert.deepEqual(errors.errors ?? [], []);
+  const verdict = { passed: true, unlimitedRangedPairs: 40, unlimitedMeleePairs: 20, unlimitedContinuesAfterHit: true, survivalAvoidedImpacts: 20, survivalElapsedTicks: failed.tutorial.attempt.elapsed, failedOnFirstImpactHit: true, pauseExcluded: true, latchedResult: true, retryResets: true, bestSurvivesRetryAndReload: true, separateStyleBests: true, firstImpactDurationTicks: 1, uniquePulses: true, noFifteenHitBreak: true, errors };
+  writeFileSync(resolve(evidence, "verdict.json"), JSON.stringify(verdict, null, 2));
+  console.log("PASS teaching v5: continuous ranged/melee beyond15, Unlimited recovery afterhit, Survival first-hit result, accurate duration, Retry and separate persistent bests.");
+}
+
+try {
+  if (endurance) await verifyEndurance();
+  else await verifySets();
 } catch (error) {
   writeFileSync(resolve(evidence, "failure-log.json"), JSON.stringify(read("window.__archiveOcellusProbe.log()"), null, 2));
   if (input) await capture("failure");

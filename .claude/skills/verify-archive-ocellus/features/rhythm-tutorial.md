@@ -15,16 +15,21 @@ The opt-in teaching aid marks the player's current safe tile and a safe neighbor
 - `teaching-feedback` distinguishes a clean pair, a missing attack, a missed or late step, and moving too far.
 - `teaching-pause` freezes encounter ticks until Resume.
 - `teaching-exit` returns to ordinary practice without markers.
+- `teaching-unlimited` runs the selected style continuously after one count-in, with unique pulses and no fifteen-hit breaks. Mistakes keep the lesson running.
+- `teaching-survival` ends on the first actual impact-tile hit, freezes the completed score and offers Retry. Preparation and paused time are excluded. Completed bests persist separately for ranged and melee.
 
 ## How to get to it (user POV)
 
 Open `http://127.0.0.1:8002/?focus=rhythm-loop&invincible=on&tutorial=on` or double-click **Start teaching version.cmd**. Read the introduction, then press **Start guided practice**. The mode button retains ranged-only, melee-only and alternating sets.
+
+The launcher now selects Unlimited ranged practice. For Survival use `lessonMode=survival&rhythmMode=ranged` or its visible session control; continuous styles are ranged or melee. Older links without a session choice retain fifteen-hit sets.
 
 ## Driving it with agent-browser
 
 Preconditions: this checkout's development server is running on port 8002, with its local runtime assets. Project-local Node and agent-browser are installed.
 
 - Run `.local-tools/node_modules/node/bin/node.exe scripts/verify-tutorial-browser.mjs`.
+- Add `--endurance` for continuous-mode verification. It plays forty ranged and twenty melee Unlimited pairs, verifies Unlimited continues after a hit, then plays twenty Survival pairs before deliberately taking the first impact hit. It verifies frozen scores, elapsed timing, pause, Retry, reload persistence and separate style records. Evidence is in `.verify/local-rhythm/tutorial-v5/`.
 - The proof waits on the actual enabled Start button and verifies that the intro does not advance world ticks.
 - It clicks Start, pauses and resumes, then follows all thirty live guide targets. Tile clicks use the highlighted tile. Boss clicks use the actual painted gold label position, recorded by a read-only canvas observer.
 - It holds positioning for ten ticks, then five ticks in the other direction. Those rows must stay clear of explosions and floor damage. Moving to blue must unlock the full five-tick count-in.

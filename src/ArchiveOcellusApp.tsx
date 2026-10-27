@@ -7,7 +7,8 @@ import { OcellusRegion } from "./content/ocellus/js/OcellusRegion";
 import type { P3Region } from "./content/ocellus/js/P3Region";
 import type { P1Region } from "./content/ocellus/js/P1Region";
 import type { P2Region } from "./content/ocellus/js/P2Region";
-import type { DrillConfig, P1Config, P2Config, P3Config, RhythmMode } from "./content/ocellus/js/OcellusTimings";
+import type { DrillConfig, LessonMode, P1Config, P2Config, P3Config, RhythmMode } from "./content/ocellus/js/OcellusTimings";
+import { readSurvivalBest, rememberSurvivalBest } from "./survivalBest";
 import { OCELLUS_P4, parseRequest } from "./content/ocellus/js/OcellusTimings";
 import type { P3End, P3Log, P3Snapshot } from "./content/ocellus/js/P3Types";
 import type { P2End, P2Log, P2Snapshot } from "./content/ocellus/js/P2Types";
@@ -584,14 +585,31 @@ const RHYTHM_MODES: Readonly<Record<RhythmMode, Readonly<{ label: string; next: 
   melee: { label: "Melee only", next: "alternating" },
 };
 
-function RhythmModeButton({ mode }: Readonly<{ mode: RhythmMode }>) {
+function RhythmModeButton({ mode, continuous = false }: Readonly<{ mode: RhythmMode; continuous?: boolean }>) {
   const currentMode = RHYTHM_MODES[mode];
+  const style = mode === "melee" ? "Melee" : "Ranged";
   const switchMode = () => {
     const url = new URL(window.location.href);
-    url.searchParams.set("rhythmMode", currentMode.next);
+    url.searchParams.set("rhythmMode", continuous ? mode === "melee" ? "ranged" : "melee" : currentMode.next);
     window.location.assign(url.href);
   };
-  return <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={`Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching mode starts a fresh practice set.">Mode: {currentMode.label}</button>;
+  return <button id="rhythm_mode" type="button" onClick={switchMode} aria-label={continuous ? `Style: ${style}. Switch to ${style === "Ranged" ? "Melee" : "Ranged"}.` : `Practice mode: ${currentMode.label}. Switch to ${RHYTHM_MODES[currentMode.next].label}.`} title="Switching style starts fresh.">{continuous ? `Style: ${style}` : `Mode: ${currentMode.label}`}</button>;
+}
+
+const LESSON_MODES: Readonly<Record<LessonMode, Readonly<{ label: string; next: LessonMode }>>> = {
+  sets: { label: "15-hit sets", next: "unlimited" },
+  unlimited: { label: "Unlimited", next: "survival" },
+  survival: { label: "Survival", next: "sets" },
+};
+
+function LessonModeButton({ mode, style }: Readonly<{ mode: LessonMode; style: RhythmMode }>) {
+  const switchMode = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("lessonMode", LESSON_MODES[mode].next);
+    if (LESSON_MODES[mode].next !== "sets" && style === "alternating") url.searchParams.set("rhythmMode", "ranged");
+    window.location.assign(url.href);
+  };
+  return <button id="lesson_mode" type="button" onClick={switchMode}>Session: {LESSON_MODES[mode].label}</button>;
 }
 
 function RhythmBanner({ region, mode }: Readonly<{ region: OcellusRegion; mode: RhythmMode }>) {
@@ -681,6 +699,14 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
   const [lesson, setLesson] = useState<"intro" | "running" | "paused">("intro");
   const [metronome, setMetronome] = useState(false);
   const [status, setStatus] = useState(() => region.tutorialStatus());
+  const selectedStyle = mode === "melee" ? "melee" : "ranged";
+  const [best, setBest] = useState(() => readSurvivalBest(selectedStyle));
+  const profile = status?.lessonMode ?? "sets";
+  const attempt = status?.attempt;
+  const failed = attempt?.kind === "failed";
+  useEffect(() => {
+    if (profile === "survival" && attempt?.kind === "failed") setBest(rememberSurvivalBest(selectedStyle, attempt.elapsed));
+  }, [profile, attempt, selectedStyle]);
   useEffect(() => {
     if (ready) trainer.world.startLoop();
   }, [ready, trainer]);
@@ -698,16 +724,23 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
     return () => window.clearInterval(poll);
   }, [region, trainer, metronome, lesson]);
   const start = () => {
-    if (!ready) return;
+    if (!ready || failed) return;
     trainer.start();
     setLesson("running");
   };
   const pause = () => {
+    if (failed) return;
     if (lesson === "paused") start();
     else {
       trainer.stop();
       setLesson("paused");
     }
+  };
+  const retry = () => {
+    trainer.reset();
+    setStatus(region.tutorialStatus());
+    trainer.start();
+    setLesson("running");
   };
   const leave = () => {
     const url = new URL(window.location.href);
@@ -717,7 +750,7 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
   const cue = status?.cue;
   const stage = status?.lesson;
   const style = stage?.style === "melee" ? "Melee" : "Ranged";
-  const progress = stage?.kind === "practice" ? `${style} · Beat ${stage.beat} / ${stage.count}` : stage?.kind === "count-in" ? `${style} · Starts in ${stage.remaining}` : `${style} · Positioning · Floor clear`;
+  const progress = stage?.kind === "practice" ? `${style} · Beat ${stage.beat}${stage.count === null ? "" : ` / ${stage.count}`}` : stage?.kind === "count-in" ? `${style} · Starts in ${stage.remaining}` : `${style} · Positioning · Floor clear`;
   return (
     <>
       {lesson === "intro" && (
@@ -725,6 +758,7 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
           <section>
             <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
             <h2 id="tutorial_title">Learn the two-tick rhythm</h2>
+            <p>{profile === "sets" ? "Fifteen-hit sets with breaks between styles." : profile === "unlimited" ? "Unlimited keeps your chosen style going without breaks and continues after hits." : "Survival ends on your first impact-tile hit. Try to beat your best time."}</p>
             <p>The guide follows your position. Ranged stays outside the central square; melee stays on its inner rim, beside Ocellus.</p>
             <ol>
               <li><b className="tutorial_step_colour">Green STEP:</b> click the highlighted tile to move one tile.</li>
@@ -734,24 +768,30 @@ function RhythmTutorial({ trainer, region, ready, mode }: Readonly<{ trainer: Tr
             </ol>
             <p>The amber TARGET border drains to your movement deadline. After the tile locks, its red IMPACT border drains to the burst; that countdown is already too late to escape from the marked tile.</p>
             <p>After a mistake, follow the next safe STEP, then ATTACK. A real successful pair confirms you are back in rhythm. The optional metronome uses low STEP and high ATTACK tones.</p>
-            <RhythmModeButton mode={mode} />
+            <LessonModeButton mode={profile} style={mode} />
+            <RhythmModeButton mode={mode} continuous={profile !== "sets"} />
             <button id="tutorial_start" type="button" disabled={!ready} onClick={start}>{ready ? "Start guided practice" : "Loading practice…"}</button>
           </section>
         </div>
       )}
       {lesson !== "intro" && (
-        <section id="tutorial_panel" data-action={lesson === "paused" ? "paused" : cue?.kind ?? "prepare"}>
+        <section id="tutorial_panel" data-action={failed ? "failed" : lesson === "paused" ? "paused" : cue?.kind ?? "prepare"}>
           <p className="tutorial_eyebrow">GUIDED PRACTICE</p>
-          <RhythmModeButton mode={mode} />
-          <strong id="tutorial_cue">{lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
+          <LessonModeButton mode={profile} style={mode} />
+          <RhythmModeButton mode={mode} continuous={profile !== "sets"} />
+          <strong id="tutorial_cue">{failed ? "IMPACT HIT — RUN OVER" : lesson === "paused" ? "PAUSED" : cue ? teachingInstruction(cue) : "GET READY"}</strong>
           <p id="tutorial_progress">{progress}</p>
-          <p id="tutorial_recovery" data-recovery={lesson === "paused" ? "paused" : status?.safeFloor === false || (status?.threat.kind === "locked" && status.threat.playerOnMark) ? "warning" : status?.recovery.kind}>{lesson === "paused" ? "Cues paused" : status ? recoveryInstruction(status) : "Follow the next step."}</p>
-          <p id="tutorial_hint">{lesson === "paused" ? "Read the pattern, then press Resume when ready." : status ? teachingHint(status) : "Wait for the next cue."}</p>
-          <div className="tutorial_beat"><span data-active={lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
+          {attempt && <p id="tutorial_attempt">Time {gameTime(attempt.kind === "waiting" ? 0 : attempt.elapsed)} · {attempt.kind === "waiting" ? 0 : attempt.survivedImpacts} impacts avoided · {attempt.kind === "waiting" ? 0 : attempt.cleanPairs} clean pairs</p>}
+          {profile === "survival" && <p id="tutorial_best">Best {gameTime(best)} · {style}</p>}
+          {profile !== "sets" && <p id="tutorial_session_hint">{profile === "survival" ? "An impact-tile hit ends the attempt." : "Unlimited continues after hits."}</p>}
+          {failed && <p id="tutorial_failure">Impact hit—run over. Your score is saved; retry when ready.</p>}
+          <p id="tutorial_recovery" data-recovery={failed ? "failed" : lesson === "paused" ? "paused" : status?.safeFloor === false || (status?.threat.kind === "locked" && status.threat.playerOnMark) ? "warning" : status?.recovery.kind}>{failed ? "Attempt finished" : lesson === "paused" ? "Cues paused" : status ? recoveryInstruction(status) : "Follow the next step."}</p>
+          <p id="tutorial_hint">{failed ? "Press Retry survival to start a fresh count-in." : lesson === "paused" ? "Read the pattern, then press Resume when ready." : status ? teachingHint(status) : "Wait for the next cue."}</p>
+          <div className="tutorial_beat"><span data-active={!failed && lesson === "running" && cue?.kind === "step"}>1 · STEP</span><span data-active={!failed && lesson === "running" && cue?.kind === "attack"}>2 · ATTACK</span></div>
           <p id="tutorial_feedback">{status?.safeFloor === false ? "You are on the damaging void floor. Move to blue POSITION." : status?.feedback ? TEACHING_FEEDBACK[status.feedback] : "Follow the cues. Feedback appears after each explosion."}</p>
-          <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>
+          {profile === "sets" && <p id="tutorial_score">{status?.clean ?? 0} clean pairs / {status?.attempts ?? 0} attempts</p>}
           <div className="tutorial_controls">
-            <button id="tutorial_pause" type="button" onClick={pause}>{lesson === "paused" ? "Resume" : "Pause"}</button>
+            {failed ? <button id="tutorial_retry" type="button" onClick={retry}>Retry survival</button> : <button id="tutorial_pause" type="button" onClick={pause}>{lesson === "paused" ? "Resume" : "Pause"}</button>}
             <button id="tutorial_metronome" type="button" aria-pressed={metronome} onClick={() => setMetronome((on) => !on)}>Metronome: {metronome ? "On" : "Off"}</button>
             <button id="tutorial_leave" type="button" onClick={leave}>Practice without guides</button>
           </div>
